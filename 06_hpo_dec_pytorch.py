@@ -2,6 +2,8 @@ import os
 import sys
 import gc
 import json
+import time
+import subprocess
 import warnings
 import numpy as np
 import pandas as pd
@@ -21,9 +23,37 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# CPU Multithreading Speed Optimization
 num_cpus = os.cpu_count() or 4
 torch.set_num_threads(min(6, num_cpus))
+try:
+    torch.set_num_interop_threads(1)
+except RuntimeError:
+    pass
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("PyTorch Version:", torch.__version__)
+print("Using Device:", device)
+if device.type == 'cuda':
+    print("GPU Model:", torch.cuda.get_device_name(0))
+    torch.cuda.set_per_process_memory_fraction(0.5, device=0)  # VRAM Limit 50%
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True
+else:
+    print(f"CPU Multithreading Optimized with {num_cpus} threads")
+
+# Auto-load MSVC environment (PATH, INCLUDE, LIB) for torch.compile()
+vcvars_path = r"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+if os.path.exists(vcvars_path):
+    try:
+        msvc_env = subprocess.check_output(f'cmd.exe /c ""{vcvars_path}" && set"', text=True)
+        for line in msvc_env.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                os.environ[k] = v
+    except Exception:
+        pass
 
 # Data Loading & Preprocessing
 data_path = 'acn_caltech_ready.csv'
@@ -78,7 +108,15 @@ def create_dataloader(X_data, y_data, lookback, horizon, batch_size=64, shuffle=
     X_t = torch.tensor(np.array(X_seq, dtype=np.float32))
     y_t = torch.tensor(np.array(y_seq, dtype=np.float32))
     ds = TensorDataset(X_t, y_t)
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=shuffle)
+    return DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=shuffle,
+        num_workers=2,
+        pin_memory=(device.type == 'cuda'),
+        persistent_workers=True if shuffle else False
+    )
 
 class PositionalEmbedding(nn.Module):
     def __init__(self, seq_len, d_model):
@@ -169,18 +207,20 @@ def objective(trial):
     for epoch in range(1, epochs + 1):
         model.train()
         for b_X, b_y in train_loader:
-            b_X, b_y = b_X.to(device), b_y.to(device)
+            b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
             optimizer.zero_grad(set_to_none=True)
             loss = criterion(model(b_X), b_y)
             loss.backward()
             optimizer.step()
+            time.sleep(0.005)  # Rest GPU per batch to keep temperature cool
 
         model.eval()
         val_loss = 0.0
         with torch.inference_mode():
             for b_X, b_y in val_loader:
-                b_X, b_y = b_X.to(device), b_y.to(device)
+                b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
                 loss = criterion(model(b_X), b_y)
+                time.sleep(0.002)
                 val_loss += loss.item() * b_X.size(0)
         val_loss /= len(val_loader.dataset)
 
