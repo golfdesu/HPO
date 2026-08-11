@@ -1,0 +1,248 @@
+import os
+import sys
+import gc
+import json
+import warnings
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+from sklearn.preprocessing import MinMaxScaler
+
+try:
+    import optuna
+except ImportError:
+    print("Installing Optuna...")
+    os.system("pip install optuna")
+    import optuna
+
+warnings.filterwarnings('ignore')
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+num_cpus = os.cpu_count() or 4
+torch.set_num_threads(min(6, num_cpus))
+
+# Data Loading & Preprocessing
+data_path = 'acn_caltech_ready.csv'
+if not os.path.exists(data_path):
+    data_path = 'acn_caltech_ready2.csv'
+if not os.path.exists(data_path):
+    data_path = '../preprocess/acn_caltech_ready.csv'
+if not os.path.exists(data_path):
+    data_path = '../preprocess/acn_caltech_ready2.csv'
+if not os.path.exists(data_path):
+    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready.csv'
+if not os.path.exists(data_path):
+    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready2.csv'
+
+df = pd.read_csv(data_path)
+df['connectionTime'] = pd.to_datetime(df['connectionTime'])
+df = df.set_index('connectionTime')
+df = df.drop(columns=['prcp', 'tempDiff_48', 'cldc'], errors='ignore')
+
+cols = [c for c in df.columns if c != 'kWhDelivered']
+for col in df.columns:
+    df[col] = df[col].astype('float32')
+
+X = df[cols]
+y = df['kWhDelivered']
+
+train_len = int(len(df) * 0.6)
+val_len = int(len(df) * 0.2)
+
+X_train = X[:train_len]
+X_val   = X[train_len : train_len + val_len]
+
+y_train = y[:train_len]
+y_val   = y[train_len : train_len + val_len]
+
+scaler_X = MinMaxScaler()
+X_train_scaled = scaler_X.fit_transform(X_train)
+X_val_scaled   = scaler_X.transform(X_val)
+
+scaler_y = MinMaxScaler()
+y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1)).flatten()
+y_val_scaled   = scaler_y.transform(y_val.values.reshape(-1, 1)).flatten()
+
+LOOKBACK = 96
+HORIZON = 48
+
+def create_dataloader(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True):
+    X_seq, y_seq = [], []
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
+        y_seq.append(y_data[i + lookback : i + lookback + horizon])
+    X_t = torch.tensor(np.array(X_seq, dtype=np.float32))
+    y_t = torch.tensor(np.array(y_seq, dtype=np.float32))
+    ds = TensorDataset(X_t, y_t)
+    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=shuffle)
+
+class PositionalEmbedding(nn.Module):
+    def __init__(self, seq_len, d_model):
+        super().__init__()
+        self.pos_emb = nn.Embedding(seq_len, d_model)
+    def forward(self, x):
+        positions = torch.arange(0, x.size(1), device=x.device)
+        return x + self.pos_emb(positions)
+
+class GaussianNoise(nn.Module):
+    def __init__(self, stddev=0.01):
+        super().__init__()
+        self.stddev = stddev
+    def forward(self, x):
+        if self.training and self.stddev > 0:
+            return x + torch.randn_like(x) * self.stddev
+        return x
+# --- Model Definition ---
+class SeriesDecomp(nn.Module):
+    def __init__(self, kernel_size=25):
+        super().__init__()
+        self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
+    def forward(self, x):
+        trend = self.avg_pool(x.transpose(1, 2)).transpose(1, 2)
+        if trend.size(1) > x.size(1): trend = trend[:, :x.size(1), :]
+        elif trend.size(1) < x.size(1): trend = F.pad(trend, (0, 0, 0, x.size(1) - trend.size(1)))
+        return x - trend, trend
+
+class AutoformerModel(nn.Module):
+    def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
+        super().__init__()
+        self.horizon = horizon
+        self.proj = nn.Linear(num_features, d_model)
+        self.decomp_init = SeriesDecomp(25)
+        self.num_layers = num_layers
+        self.enc_attn = nn.ModuleList([nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True) for _ in range(num_layers)])
+        self.decomp1_enc = nn.ModuleList([SeriesDecomp(25) for _ in range(num_layers)])
+        self.ffn_enc = nn.ModuleList([nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model)) for _ in range(num_layers)])
+        self.decomp2_enc = nn.ModuleList([SeriesDecomp(25) for _ in range(num_layers)])
+        self.drop = nn.Dropout(dropout_rate)
+        self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True)
+        self.decomp_dec = SeriesDecomp(25)
+        self.out_head = nn.Linear(d_model * horizon, horizon)
+    def forward(self, x):
+        bs = x.size(0)
+        s_enc, t_enc = self.decomp_init(self.proj(x))
+        for i in range(self.num_layers):
+            a, _ = self.enc_attn[i](s_enc, s_enc, s_enc)
+            s_enc, _ = self.decomp1_enc[i](s_enc + self.drop(a))
+            f = self.ffn_enc[i](s_enc)
+            s_enc, _ = self.decomp2_enc[i](s_enc + self.drop(f))
+        t_part = t_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
+        s_part = s_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
+        ca, _ = self.cross_attn(s_part, s_enc, s_enc)
+        s_dec, t_extra = self.decomp_dec(s_part + self.drop(ca))
+        comb = s_dec + (t_part + t_extra)
+        return self.out_head(comb.reshape(bs, -1))
+
+# --- Optuna Objective (FULL 100% Data Search) ---
+def objective(trial):
+    d_model = trial.suggest_categorical('d_model', [32, 64, 128])
+    valid_heads = [h for h in [2, 4, 8] if d_model % h == 0]
+    num_heads = trial.suggest_categorical('num_heads', valid_heads)
+    ff_mult = trial.suggest_categorical('d_ff_mult', [2, 4])
+    d_ff = d_model * ff_mult
+    
+    num_layers   = trial.suggest_int('num_layers', 1, 3)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.2, step=0.05)
+    learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True)
+    weight_decay  = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
+    batch_size    = trial.suggest_categorical('batch_size', [64, 128, 256])
+    
+    extra_kwargs = {}
+
+
+    # FULL 100% Train dataset DataLoaders
+    train_loader = create_dataloader(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON, batch_size=batch_size, shuffle=True)
+    val_loader   = create_dataloader(X_val_scaled, y_val_scaled, LOOKBACK, HORIZON, batch_size=batch_size, shuffle=False)
+
+    model = AutoformerModel(
+        lookback=LOOKBACK,
+        num_features=X_train_scaled.shape[1],
+        horizon=HORIZON,
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        num_layers=num_layers,
+        dropout_rate=dropout_rate,
+        **extra_kwargs
+    ).to(device)
+
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    # Extended FULL Search: 20 Epochs with Early Stopping Patience = 5
+    epochs = 20
+    patience = 5
+    patience_counter = 0
+    best_val_loss = float('inf')
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        for b_X, b_y in train_loader:
+            b_X, b_y = b_X.to(device), b_y.to(device)
+            optimizer.zero_grad(set_to_none=True)
+            loss = criterion(model(b_X), b_y)
+            loss.backward()
+            optimizer.step()
+
+        model.eval()
+        val_loss = 0.0
+        with torch.inference_mode():
+            for b_X, b_y in val_loader:
+                b_X, b_y = b_X.to(device), b_y.to(device)
+                loss = criterion(model(b_X), b_y)
+                val_loss += loss.item() * b_X.size(0)
+        val_loss /= len(val_loader.dataset)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                break
+
+        trial.report(val_loss, step=epoch)
+        if trial.should_prune():
+            raise optuna.exceptions.TrialPruned()
+
+    return best_val_loss
+
+if __name__ == '__main__':
+    print("=" * 65)
+    print("🚀 Autoformer PyTorch FULL HPO (NeurIPS 2021)")
+    print("=" * 65)
+    print("Starting FULL Optuna Study (20 Trials on 100% Data)...\n")
+    optuna.logging.set_verbosity(optuna.logging.INFO)
+
+    study = optuna.create_study(
+        sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        direction="minimize",
+        study_name="03_hpo_afm_pytorch_full"
+    )
+
+    study.optimize(objective, n_trials=20)
+
+    print("\n" + "=" * 65)
+    print("🏆 BEST HYPERPARAMETERS FOUND (FULL SEARCH):")
+    print("=" * 65)
+    for key, val in study.best_params.items():
+        print(f"  - {key:<15}: {val}")
+    print(f"\n  - Lowest Validation Loss: {study.best_value:.6f}")
+    print("=" * 65)
+
+    # Save best parameters to JSON
+    output_json = "03_hpo_afm_pytorch_best_params.json"
+    best_data = {
+        "model_name": "03_hpo_afm_pytorch",
+        "search_mode": "FULL_100_PERCENT",
+        "best_val_loss": float(study.best_value),
+        "best_params": study.best_params
+    }
+    with open(output_json, "w", encoding="utf-8") as f:
+        json.dump(best_data, f, indent=4)
+    print(f"\nSaved best parameters to {output_json}")
