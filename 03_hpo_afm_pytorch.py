@@ -135,45 +135,195 @@ class GaussianNoise(nn.Module):
             return x + torch.randn_like(x) * self.stddev
         return x
 # --- Model Definition ---
+# Helper 1: PyTorch DataLoader Creator
+def create_windowed_dataset_pytorch(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True, drop_last=None):
+    X_seq, y_seq = [], []
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
+        y_seq.append(y_data[i + lookback : i + lookback + horizon])
+    
+    X_tensor = torch.tensor(np.array(X_seq, dtype=np.float32))
+    y_tensor = torch.tensor(np.array(y_seq, dtype=np.float32))
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    if drop_last is None:
+        drop_last = shuffle
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return dataloader, np.array(X_seq, dtype=np.float32), np.array(y_seq, dtype=np.float32)
+
+# Helper: Positional Embedding Layer in PyTorch
+class PositionalEmbedding(nn.Module):
+    def __init__(self, seq_len, d_model):
+        super().__init__()
+        self.pos_emb = nn.Embedding(seq_len, d_model)
+    def forward(self, x):
+        positions = torch.arange(0, x.size(1), device=x.device)
+        return x + self.pos_emb(positions)
+
+# Helper: PyTorch Gaussian Noise Layer
+class GaussianNoise(nn.Module):
+    def __init__(self, stddev=0.01):
+        super().__init__()
+        self.stddev = stddev
+    def forward(self, x):
+        if self.training and self.stddev > 0:
+            noise = torch.randn_like(x) * self.stddev
+            return x + noise
+        return x
+
+# Helper: Metrics Evaluator Function
+def compute_metrics(actual, predicted, peak_threshold):
+    mae = mean_absolute_error(actual, predicted)
+    rmse = np.sqrt(mean_squared_error(actual, predicted))
+    r2 = r2_score(actual, predicted)
+    wape = (np.sum(np.abs(actual - predicted)) / np.sum(actual)) * 100
+
+    non_zero_mask = actual > 0
+    mape = np.mean(np.abs((actual[non_zero_mask] - predicted[non_zero_mask]) / actual[non_zero_mask])) * 100 if non_zero_mask.any() else np.nan
+
+    peak_mask = actual >= peak_threshold
+    if peak_mask.any():
+        mae_peak = mean_absolute_error(actual[peak_mask], predicted[peak_mask])
+        wape_peak = (np.sum(np.abs(actual[peak_mask] - predicted[peak_mask])) / np.sum(actual[peak_mask])) * 100
+    else:
+        mae_peak, wape_peak = np.nan, np.nan
+
+    return dict(mae=mae, rmse=rmse, r2=r2, wape=wape, mape=mape, mae_peak=mae_peak, wape_peak=wape_peak)
+
+# Helper: Series Decomposition Layer (Autoformer Core Component)
 class SeriesDecomp(nn.Module):
     def __init__(self, kernel_size=25):
         super().__init__()
+        self.kernel_size = kernel_size
         self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
-    def forward(self, x):
-        trend = self.avg_pool(x.transpose(1, 2)).transpose(1, 2)
-        if trend.size(1) > x.size(1): trend = trend[:, :x.size(1), :]
-        elif trend.size(1) < x.size(1): trend = F.pad(trend, (0, 0, 0, x.size(1) - trend.size(1)))
-        return x - trend, trend
 
+    def forward(self, x):
+        # x shape: [batch, seq_len, d_model]
+        x_tr = x.transpose(1, 2)
+        trend = self.avg_pool(x_tr).transpose(1, 2)
+        if trend.size(1) > x.size(1):
+            trend = trend[:, :x.size(1), :]
+        elif trend.size(1) < x.size(1):
+            trend = F.pad(trend, (0, 0, 0, x.size(1) - trend.size(1)))
+        seasonal = x - trend
+        return seasonal, trend
+
+# Helper: Auto-Correlation Mechanism (Autoformer Core Component)
+class AutoCorrelation(nn.Module):
+    def __init__(self, factor=1, attention_dropout=0.1):
+        super().__init__()
+        self.factor = factor
+        self.dropout = nn.Dropout(attention_dropout)
+
+    def time_delay_agg(self, values, corr):
+        batch, head, length, channel = values.shape
+        top_k = max(1, int(self.factor * np.log(length)))
+        mean_value = torch.mean(torch.mean(corr, dim=1), dim=1)
+        weights, index = torch.topk(mean_value, top_k, dim=-1)
+        tmp_corr = torch.softmax(weights, dim=-1)
+        
+        tmp_values = values.repeat(1, 1, 2, 1)
+        delays_agg = torch.zeros_like(values)
+        for i in range(top_k):
+            pattern = tmp_corr[:, i].view(batch, 1, 1, 1)
+            for b in range(batch):
+                idx = index[b, i].item()
+                delays_agg[b:b+1] = delays_agg[b:b+1] + pattern[b:b+1] * tmp_values[b:b+1, :, idx:idx+length, :]
+        return delays_agg
+
+    def forward(self, queries, keys, values, attn_mask=None):
+        B, L, H, E = queries.shape
+        _, S, _, D = values.shape
+        if L > S:
+            zeros = torch.zeros(B, L - S, H, D, device=queries.device)
+            values = torch.cat([values, zeros], dim=1)
+            keys = torch.cat([keys, zeros], dim=1)
+        else:
+            values = values[:, :L, :, :]
+            keys = keys[:, :L, :, :]
+
+        q_fft = torch.fft.rfft(queries.permute(0, 2, 3, 1), dim=-1)
+        k_fft = torch.fft.rfft(keys.permute(0, 2, 3, 1), dim=-1)
+        res = q_fft * torch.conj(k_fft)
+        corr = torch.fft.irfft(res, dim=-1)
+
+        values_perm = values.permute(0, 2, 1, 3)
+        corr_perm = corr.permute(0, 1, 3, 2)
+        out = self.time_delay_agg(values_perm, corr_perm)
+        return out.permute(0, 2, 1, 3).contiguous(), None
+
+class AutoCorrelationLayer(nn.Module):
+    def __init__(self, correlation, d_model, n_heads):
+        super().__init__()
+        d_keys = d_model // n_heads
+        d_values = d_model // n_heads
+        self.inner_correlation = correlation
+        self.query_projection = nn.Linear(d_model, d_keys * n_heads)
+        self.key_projection = nn.Linear(d_model, d_keys * n_heads)
+        self.value_projection = nn.Linear(d_model, d_values * n_heads)
+        self.out_projection = nn.Linear(d_values * n_heads, d_model)
+        self.n_heads = n_heads
+
+    def forward(self, queries, keys, values, attn_mask=None):
+        B, L, _ = queries.shape
+        _, S, _ = keys.shape
+        H = self.n_heads
+        queries = self.query_projection(queries).view(B, L, H, -1)
+        keys = self.key_projection(keys).view(B, S, H, -1)
+        values = self.value_projection(values).view(B, S, H, -1)
+        out, attn = self.inner_correlation(queries, keys, values, attn_mask)
+        out = out.view(B, L, -1)
+        return self.out_projection(out), attn
+
+# Helper: Autoformer Architecture PyTorch Module
 class AutoformerModel(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
+        self.lookback = lookback
         self.horizon = horizon
         self.proj = nn.Linear(num_features, d_model)
-        self.decomp_init = SeriesDecomp(25)
+        self.decomp_init = SeriesDecomp(kernel_size=25)
+
         self.num_layers = num_layers
-        self.enc_attn = nn.ModuleList([nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True) for _ in range(num_layers)])
-        self.decomp1_enc = nn.ModuleList([SeriesDecomp(25) for _ in range(num_layers)])
-        self.ffn_enc = nn.ModuleList([nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model)) for _ in range(num_layers)])
-        self.decomp2_enc = nn.ModuleList([SeriesDecomp(25) for _ in range(num_layers)])
+        self.enc_attn = nn.ModuleList([
+            AutoCorrelationLayer(AutoCorrelation(factor=1, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+            for _ in range(num_layers)
+        ])
+        self.decomp1_enc = nn.ModuleList([SeriesDecomp(kernel_size=25) for _ in range(num_layers)])
+        self.ffn_enc = nn.ModuleList([
+            nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model)) for _ in range(num_layers)
+        ])
+        self.decomp2_enc = nn.ModuleList([SeriesDecomp(kernel_size=25) for _ in range(num_layers)])
         self.drop = nn.Dropout(dropout_rate)
-        self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True)
-        self.decomp_dec = SeriesDecomp(25)
+
+        # Decoder Auto-Correlation & decomp
+        self.cross_attn = AutoCorrelationLayer(AutoCorrelation(factor=1, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+        self.decomp_dec = SeriesDecomp(kernel_size=25)
         self.out_head = nn.Linear(d_model * horizon, horizon)
+
     def forward(self, x):
-        bs = x.size(0)
-        s_enc, t_enc = self.decomp_init(self.proj(x))
+        # x: [batch, lookback, num_features]
+        batch_size = x.size(0)
+        x_proj = self.proj(x)
+        seasonal_enc, trend_enc = self.decomp_init(x_proj)
+
         for i in range(self.num_layers):
-            a, _ = self.enc_attn[i](s_enc, s_enc, s_enc)
-            s_enc, _ = self.decomp1_enc[i](s_enc + self.drop(a))
-            f = self.ffn_enc[i](s_enc)
-            s_enc, _ = self.decomp2_enc[i](s_enc + self.drop(f))
-        t_part = t_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
-        s_part = s_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
-        ca, _ = self.cross_attn(s_part, s_enc, s_enc)
-        s_dec, t_extra = self.decomp_dec(s_part + self.drop(ca))
-        comb = s_dec + (t_part + t_extra)
-        return self.out_head(comb.reshape(bs, -1))
+            attn_out, _ = self.enc_attn[i](seasonal_enc, seasonal_enc, seasonal_enc)
+            seasonal_enc, _ = self.decomp1_enc[i](seasonal_enc + self.drop(attn_out))
+            ffn_out = self.ffn_enc[i](seasonal_enc)
+            seasonal_enc, _ = self.decomp2_enc[i](seasonal_enc + self.drop(ffn_out))
+
+        trend_part = trend_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
+        seasonal_part = seasonal_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
+
+        cross_attn_out, _ = self.cross_attn(queries=seasonal_part, keys=seasonal_enc, values=seasonal_enc)
+        seasonal_dec = seasonal_part + self.drop(cross_attn_out)
+        seasonal_dec, trend_extra = self.decomp_dec(seasonal_dec)
+        trend_part = trend_part + trend_extra
+
+        combined = seasonal_dec + trend_part
+        out = self.out_head(combined.reshape(batch_size, -1))
+        return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):
@@ -260,7 +410,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=8),
         direction="minimize",
         study_name="03_hpo_afm_pytorch_full"
     )

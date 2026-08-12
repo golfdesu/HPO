@@ -135,45 +135,131 @@ class GaussianNoise(nn.Module):
             return x + torch.randn_like(x) * self.stddev
         return x
 # --- Model Definition ---
-class GatedResidualNetwork(nn.Module):
-    def __init__(self, d_model=64, dropout_rate=0.1):
-        super().__init__()
-        self.d1, self.d2 = nn.Linear(d_model, d_model), nn.Linear(d_model, d_model)
-        self.gate = nn.Linear(d_model, d_model)
-        self.drop, self.norm = nn.Dropout(dropout_rate), nn.LayerNorm(d_model)
-    def forward(self, x):
-        return self.norm(x + self.drop(self.d2(F.elu(self.d1(x)))) * torch.sigmoid(self.gate(x)))
+# Helper 1: PyTorch DataLoader Creator
+def create_windowed_dataset_pytorch(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True, drop_last=None):
+    X_seq, y_seq = [], []
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
+        y_seq.append(y_data[i + lookback : i + lookback + horizon])
+    
+    X_tensor = torch.tensor(np.array(X_seq, dtype=np.float32))
+    y_tensor = torch.tensor(np.array(y_seq, dtype=np.float32))
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    if drop_last is None:
+        drop_last = shuffle
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return dataloader, np.array(X_seq, dtype=np.float32), np.array(y_seq, dtype=np.float32)
 
+# Helper: Positional Embedding Layer in PyTorch
+class PositionalEmbedding(nn.Module):
+    def __init__(self, seq_len, d_model):
+        super().__init__()
+        self.pos_emb = nn.Embedding(seq_len, d_model)
+    def forward(self, x):
+        positions = torch.arange(0, x.size(1), device=x.device)
+        return x + self.pos_emb(positions)
+
+# Helper: PyTorch Gaussian Noise Layer
+class GaussianNoise(nn.Module):
+    def __init__(self, stddev=0.01):
+        super().__init__()
+        self.stddev = stddev
+    def forward(self, x):
+        if self.training and self.stddev > 0:
+            noise = torch.randn_like(x) * self.stddev
+            return x + noise
+        return x
+
+# Helper: Metrics Evaluator Function
+def compute_metrics(actual, predicted, peak_threshold):
+    mae = mean_absolute_error(actual, predicted)
+    rmse = np.sqrt(mean_squared_error(actual, predicted))
+    r2 = r2_score(actual, predicted)
+    wape = (np.sum(np.abs(actual - predicted)) / np.sum(actual)) * 100
+
+    non_zero_mask = actual > 0
+    mape = np.mean(np.abs((actual[non_zero_mask] - predicted[non_zero_mask]) / actual[non_zero_mask])) * 100 if non_zero_mask.any() else np.nan
+
+    peak_mask = actual >= peak_threshold
+    if peak_mask.any():
+        mae_peak = mean_absolute_error(actual[peak_mask], predicted[peak_mask])
+        wape_peak = (np.sum(np.abs(actual[peak_mask] - predicted[peak_mask])) / np.sum(actual[peak_mask])) * 100
+    else:
+        mae_peak, wape_peak = np.nan, np.nan
+
+    return dict(mae=mae, rmse=rmse, r2=r2, wape=wape, mape=mape, mae_peak=mae_peak, wape_peak=wape_peak)
+
+# Helper: Gated Residual Network (GRN - TFT Core Component)
+class GatedResidualNetwork(nn.Module):
+    def __init__(self, in_features, d_model, dropout_rate=0.1):
+        super().__init__()
+        self.dense1 = nn.Linear(in_features, d_model)
+        self.dense2 = nn.Linear(d_model, d_model)
+        self.gate = nn.Linear(in_features, d_model)
+        self.drop = nn.Dropout(dropout_rate)
+        self.norm = nn.LayerNorm(d_model)
+        self.res_proj = nn.Linear(in_features, d_model) if in_features != d_model else nn.Identity()
+
+    def forward(self, x):
+        a = self.drop(self.dense2(F.elu(self.dense1(x))))
+        g = torch.sigmoid(self.gate(x))
+        return self.norm(self.res_proj(x) + a * g)
+
+# Helper: Variable Selection Network (VSN - TFT Official IJF 2021)
 class VariableSelectionNetwork(nn.Module):
     def __init__(self, num_features=27, d_model=64, dropout_rate=0.1):
         super().__init__()
         self.num_features = num_features
-        self.grns = nn.ModuleList([GatedResidualNetwork(d_model, dropout_rate) for _ in range(num_features)])
-        self.weight_dense = nn.Linear(num_features, num_features)
-        self.projections = nn.ModuleList([nn.Linear(1, d_model) for _ in range(num_features)])
+        self.weight_grn = GatedResidualNetwork(num_features, num_features, dropout_rate)
+        self.feature_grns = nn.ModuleList([GatedResidualNetwork(1, d_model, dropout_rate) for _ in range(num_features)])
+
     def forward(self, inputs):
-        weights = torch.softmax(self.weight_dense(inputs), dim=-1).unsqueeze(-1)
-        processed = [self.grns[i](self.projections[i](inputs[:, :, i:i+1])) for i in range(self.num_features)]
+        # inputs: [batch, seq_len, num_features]
+        weights = torch.softmax(self.weight_grn(inputs), dim=-1).unsqueeze(-1)
+        processed = []
+        for i in range(self.num_features):
+            feat_i = inputs[:, :, i:i+1]
+            grn_i = self.feature_grns[i](feat_i)
+            processed.append(grn_i)
         stack = torch.stack(processed, dim=2)
         return torch.sum(stack * weights, dim=2)
 
+# Helper: TFT Architecture PyTorch Module (Official IJF 2021)
 class TFTModel(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
         self.vsn = VariableSelectionNetwork(num_features, d_model, dropout_rate)
-        self.mha = nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True)
-        self.drop, self.norm = nn.Dropout(dropout_rate), nn.LayerNorm(d_model)
-        self.grn_post = GatedResidualNetwork(d_model, dropout_rate)
+        self.lstm_encoder = nn.LSTM(d_model, d_model, batch_first=True)
+        self.mha = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, dropout=dropout_rate, batch_first=True)
+        self.drop = nn.Dropout(dropout_rate)
+        self.norm = nn.LayerNorm(d_model)
+        self.grn_post = GatedResidualNetwork(d_model, d_model, dropout_rate)
+
         self.head_fc1 = nn.Linear(d_model * 2, 128)
-        self.head_drop = nn.Dropout(dropout_rate)
+        self.head_dropout = nn.Dropout(dropout_rate)
         self.out_proj = nn.Linear(128, horizon)
+
     def forward(self, x):
+        # x: [batch, lookback, num_features]
         vsn_out = self.vsn(x)
-        c_mask = torch.triu(torch.full((vsn_out.size(1), vsn_out.size(1)), float('-inf'), device=x.device), diagonal=1)
-        attn, _ = self.mha(vsn_out, vsn_out, vsn_out, attn_mask=c_mask)
-        grn_out = self.grn_post(self.norm(vsn_out + self.drop(attn)))
-        ctx = torch.cat([grn_out[:, -1, :], torch.mean(grn_out, dim=1)], dim=-1)
-        return self.out_proj(self.head_drop(F.relu(self.head_fc1(ctx))))
+        lstm_out, _ = self.lstm_encoder(vsn_out)
+        
+        seq_len = lstm_out.size(1)
+        causal_mask = torch.triu(torch.full((seq_len, seq_len), float('-inf'), device=x.device), diagonal=1)
+
+        attn_out, _ = self.mha(lstm_out, lstm_out, lstm_out, attn_mask=causal_mask)
+        x_norm = self.norm(lstm_out + self.drop(attn_out))
+        grn_out = self.grn_post(x_norm)
+
+        last_step = grn_out[:, -1, :]
+        global_avg = torch.mean(grn_out, dim=1)
+        ctx = torch.cat([last_step, global_avg], dim=-1)
+
+        h = F.relu(self.head_fc1(ctx))
+        h = self.head_dropout(h)
+        out = self.out_proj(h)
+        return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):
@@ -260,7 +346,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=8),
         direction="minimize",
         study_name="04_hpo_tft_pytorch_full"
     )

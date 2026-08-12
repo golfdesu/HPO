@@ -247,7 +247,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=8),
         direction="minimize",
         study_name="06_hpo_dec_pytorch_full"
     )

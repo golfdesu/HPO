@@ -135,41 +135,163 @@ class GaussianNoise(nn.Module):
             return x + torch.randn_like(x) * self.stddev
         return x
 # --- Model Definition ---
-class RevIN(nn.Module):
-    def __init__(self, eps=1e-5):
-        super().__init__()
-        self.eps = eps
-    def forward(self, x):
-        mean = torch.mean(x, dim=1, keepdim=True)
-        stdev = torch.std(x, dim=1, keepdim=True, unbiased=False) + self.eps
-        return (x - mean) / stdev
+# Helper 1: PyTorch DataLoader Creator
+def create_windowed_dataset_pytorch(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True, drop_last=None):
+    X_seq, y_seq = [], []
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
+        y_seq.append(y_data[i + lookback : i + lookback + horizon])
+    
+    X_tensor = torch.tensor(np.array(X_seq, dtype=np.float32))
+    y_tensor = torch.tensor(np.array(y_seq, dtype=np.float32))
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    if drop_last is None:
+        drop_last = shuffle
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return dataloader, np.array(X_seq, dtype=np.float32), np.array(y_seq, dtype=np.float32)
 
+# Helper: Positional Embedding Layer in PyTorch
+class PositionalEmbedding(nn.Module):
+    def __init__(self, seq_len, d_model):
+        super().__init__()
+        self.pos_emb = nn.Embedding(seq_len, d_model)
+    def forward(self, x):
+        positions = torch.arange(0, x.size(1), device=x.device)
+        return x + self.pos_emb(positions)
+
+# Helper: PyTorch Gaussian Noise Layer
+class GaussianNoise(nn.Module):
+    def __init__(self, stddev=0.01):
+        super().__init__()
+        self.stddev = stddev
+    def forward(self, x):
+        if self.training and self.stddev > 0:
+            noise = torch.randn_like(x) * self.stddev
+            return x + noise
+        return x
+
+# Helper: Metrics Evaluator Function
+def compute_metrics(actual, predicted, peak_threshold):
+    mae = mean_absolute_error(actual, predicted)
+    rmse = np.sqrt(mean_squared_error(actual, predicted))
+    r2 = r2_score(actual, predicted)
+    wape = (np.sum(np.abs(actual - predicted)) / np.sum(actual)) * 100
+
+    non_zero_mask = actual > 0
+    mape = np.mean(np.abs((actual[non_zero_mask] - predicted[non_zero_mask]) / actual[non_zero_mask])) * 100 if non_zero_mask.any() else np.nan
+
+    peak_mask = actual >= peak_threshold
+    if peak_mask.any():
+        mae_peak = mean_absolute_error(actual[peak_mask], predicted[peak_mask])
+        wape_peak = (np.sum(np.abs(actual[peak_mask] - predicted[peak_mask])) / np.sum(actual[peak_mask])) * 100
+    else:
+        mae_peak, wape_peak = np.nan, np.nan
+
+    return dict(mae=mae, rmse=rmse, r2=r2, wape=wape, mape=mape, mae_peak=mae_peak, wape_peak=wape_peak)
+
+# Helper: Reversible Instance Normalization (RevIN - PatchTST Core)
+class RevIN(nn.Module):
+    def __init__(self, num_features, eps=1e-5, affine=True):
+        super().__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.affine = affine
+        if self.affine:
+            self.affine_weight = nn.Parameter(torch.ones(1, 1, num_features))
+            self.affine_bias = nn.Parameter(torch.zeros(1, 1, num_features))
+        self.mean = None
+        self.stdev = None
+
+    def forward(self, x, mode='norm'):
+        if mode == 'norm':
+            self.mean = torch.mean(x, dim=1, keepdim=True)
+            self.stdev = torch.std(x, dim=1, keepdim=True, unbiased=False) + self.eps
+            x = (x - self.mean) / self.stdev
+            if self.affine:
+                x = x * self.affine_weight + self.affine_bias
+            return x
+        elif mode == 'denorm':
+            if self.affine:
+                x = (x - self.affine_bias) / self.affine_weight
+            return x * self.stdev + self.mean
+
+# Helper: Channel Independence Layer
+class ChannelIndependence(nn.Module):
+    def forward(self, x):
+        # x shape: [batch, seq_len, num_features]
+        batch, seq_len, features = x.shape
+        x_tr = x.transpose(1, 2) # [batch, features, seq_len]
+        return x_tr.reshape(batch * features, seq_len, 1)
+
+# Helper: Temporal Patch Embedding Layer
+class PatchEmbedding(nn.Module):
+    def __init__(self, patch_len=16, stride=8, d_model=64):
+        super().__init__()
+        self.patch_len = patch_len
+        self.stride = stride
+        self.proj = nn.Linear(patch_len, d_model)
+
+    def forward(self, x):
+        # x shape: [batch * features, lookback, 1]
+        lookback = x.size(1)
+        patches = []
+        for i in range(0, lookback - self.patch_len + 1, self.stride):
+            p = x[:, i : i + self.patch_len, 0] # [batch * features, patch_len]
+            patches.append(p)
+        patches = torch.stack(patches, dim=1) # [batch * features, num_patches, patch_len]
+        return self.proj(patches)
+
+# Helper: Channel Independent Output Head (PatchTST Core)
+class ChannelIndependentHead(nn.Module):
+    def __init__(self, num_features=27, horizon=48, num_patches=11, d_model=64):
+        super().__init__()
+        self.num_features = num_features
+        self.horizon = horizon
+        self.linear = nn.Linear(num_patches * d_model, horizon)
+
+    def forward(self, x, batch_size):
+        # x shape: [batch * features, num_patches, d_model]
+        x_flat = x.reshape(batch_size * self.num_features, -1)
+        head = self.linear(x_flat) # [batch * features, horizon]
+        head = head.reshape(batch_size, self.num_features, self.horizon)
+        return head.transpose(1, 2) # [batch, horizon, num_features]
+
+# Helper: PatchTST Architecture PyTorch Module
 class PatchTSTModel(nn.Module):
     def __init__(self, lookback, num_features, horizon, patch_len=16, stride=8, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
-        self.num_features, self.horizon = num_features, horizon
-        self.revin = RevIN()
-        self.patch_len, self.stride = patch_len, stride
-        self.proj = nn.Linear(patch_len, d_model)
+        self.num_features = num_features
+        self.horizon = horizon
+        self.revin = RevIN(num_features=num_features)
+        self.channel_indep = ChannelIndependence()
+
         num_patches = (lookback - patch_len) // stride + 1
+        self.patch_emb = PatchEmbedding(patch_len=patch_len, stride=stride, d_model=d_model)
         self.pos_emb = PositionalEmbedding(num_patches, d_model)
         self.drop = nn.Dropout(dropout_rate)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout_rate, batch_first=True, activation='relu')
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout_rate, batch_first=True, activation='relu'
+        )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.head_linear = nn.Linear(num_patches * d_model, horizon)
-        self.out_dense = nn.Linear(horizon * num_features, horizon)
+        self.head = ChannelIndependentHead(num_features=num_features, horizon=horizon, num_patches=num_patches, d_model=d_model)
+
     def forward(self, x):
-        bs = x.size(0)
-        x_norm = self.revin(x)
-        x_ci = x_norm.transpose(1, 2).reshape(bs * self.num_features, -1, 1)
-        patches = []
-        for i in range(0, x.size(1) - self.patch_len + 1, self.stride):
-            patches.append(x_ci[:, i : i + self.patch_len, 0])
-        p_stack = torch.stack(patches, dim=1)
-        p_emb = self.drop(self.pos_emb(self.proj(p_stack)))
-        enc_out = self.encoder(p_emb)
-        head = self.head_linear(enc_out.reshape(bs * self.num_features, -1)).reshape(bs, self.num_features, self.horizon)
-        return self.out_dense(head.transpose(1, 2).reshape(bs, -1))
+        # x: [batch, lookback, num_features]
+        batch_size = x.size(0)
+        x_norm = self.revin(x, mode='norm')
+        x_ci = self.channel_indep(x_norm)
+
+        x_patch = self.patch_emb(x_ci)
+        x_pos = self.pos_emb(x_patch)
+        x_drop = self.drop(x_pos)
+
+        enc_out = self.encoder(x_drop)
+        dec_out_norm = self.head(enc_out, batch_size) # [batch, horizon, num_features]
+        dec_out = self.revin(dec_out_norm, mode='denorm') # [batch, horizon, num_features] - RevIN Inverse Denormalize
+        out = torch.mean(dec_out, dim=-1) # [batch, horizon] - Channel Consensus Forecast
+        return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):
@@ -186,10 +308,10 @@ def objective(trial):
     batch_size    = trial.suggest_categorical('batch_size', [64, 128, 256])
     
     extra_kwargs = {}
-        patch_len = trial.suggest_categorical('patch_len', [8, 16, 24])
-        stride    = trial.suggest_categorical('stride', [4, 8])
-        extra_kwargs['patch_len'] = patch_len
-        extra_kwargs['stride'] = stride
+    patch_len = trial.suggest_categorical('patch_len', [8, 16, 24])
+    stride    = trial.suggest_categorical('stride', [4, 8])
+    extra_kwargs['patch_len'] = patch_len
+    extra_kwargs['stride'] = stride
 
     # FULL 100% Train dataset DataLoaders
     train_loader = create_dataloader(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON, batch_size=batch_size, shuffle=True)
@@ -259,7 +381,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=8),
         direction="minimize",
         study_name="05_hpo_ptft_pytorch_full"
     )

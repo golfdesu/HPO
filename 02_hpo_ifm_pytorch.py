@@ -135,58 +135,197 @@ class GaussianNoise(nn.Module):
             return x + torch.randn_like(x) * self.stddev
         return x
 # --- Model Definition ---
+# Helper 1: PyTorch DataLoader Creator
+def create_windowed_dataset_pytorch(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True, drop_last=None):
+    X_seq, y_seq = [], []
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
+        y_seq.append(y_data[i + lookback : i + lookback + horizon])
+    
+    X_tensor = torch.tensor(np.array(X_seq, dtype=np.float32))
+    y_tensor = torch.tensor(np.array(y_seq, dtype=np.float32))
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    if drop_last is None:
+        drop_last = shuffle
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+    return dataloader, np.array(X_seq, dtype=np.float32), np.array(y_seq, dtype=np.float32)
+
+# Helper: Positional Embedding Layer in PyTorch
+class PositionalEmbedding(nn.Module):
+    def __init__(self, seq_len, d_model):
+        super().__init__()
+        self.pos_emb = nn.Embedding(seq_len, d_model)
+    def forward(self, x):
+        positions = torch.arange(0, x.size(1), device=x.device)
+        return x + self.pos_emb(positions)
+
+# Helper: PyTorch Gaussian Noise Layer
+class GaussianNoise(nn.Module):
+    def __init__(self, stddev=0.01):
+        super().__init__()
+        self.stddev = stddev
+    def forward(self, x):
+        if self.training and self.stddev > 0:
+            noise = torch.randn_like(x) * self.stddev
+            return x + noise
+        return x
+
+# Helper: Metrics Evaluator Function
+def compute_metrics(actual, predicted, peak_threshold):
+    mae = mean_absolute_error(actual, predicted)
+    rmse = np.sqrt(mean_squared_error(actual, predicted))
+    r2 = r2_score(actual, predicted)
+    wape = (np.sum(np.abs(actual - predicted)) / np.sum(actual)) * 100
+
+    non_zero_mask = actual > 0
+    mape = np.mean(np.abs((actual[non_zero_mask] - predicted[non_zero_mask]) / actual[non_zero_mask])) * 100 if non_zero_mask.any() else np.nan
+
+    peak_mask = actual >= peak_threshold
+    if peak_mask.any():
+        mae_peak = mean_absolute_error(actual[peak_mask], predicted[peak_mask])
+        wape_peak = (np.sum(np.abs(actual[peak_mask] - predicted[peak_mask])) / np.sum(actual[peak_mask])) * 100
+    else:
+        mae_peak, wape_peak = np.nan, np.nan
+
+    return dict(mae=mae, rmse=rmse, r2=r2, wape=wape, mape=mape, mae_peak=mae_peak, wape_peak=wape_peak)
+
+# Helper: Distillation Layer (Informer Core Component)
 class DistillLayer(nn.Module):
     def __init__(self, d_model=64):
         super().__init__()
-        self.conv = nn.Conv1d(d_model, d_model, kernel_size=3, padding=1)
+        self.conv = nn.Conv1d(in_channels=d_model, out_channels=d_model, kernel_size=3, padding=1)
         self.act = nn.ELU()
         self.norm = nn.LayerNorm(d_model)
         self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
-    def forward(self, x):
-        c = self.act(self.conv(x.transpose(1, 2)))
-        c = self.norm(c.transpose(1, 2)).transpose(1, 2)
-        return self.pool(c).transpose(1, 2)
 
+    def forward(self, x):
+        x_tr = x.transpose(1, 2)
+        c = self.act(self.conv(x_tr))
+        c = self.norm(c.transpose(1, 2)).transpose(1, 2)
+        p = self.pool(c)
+        return p.transpose(1, 2)
+
+# Helper: ProbSparse Self-Attention (Informer Core Component)
+class ProbAttention(nn.Module):
+    def __init__(self, factor=5, scale=None, attention_dropout=0.1):
+        super().__init__()
+        self.factor = factor
+        self.scale = scale
+        self.dropout = nn.Dropout(attention_dropout)
+
+    def _prob_sparse_scores(self, queries, keys, sample_k, n_top):
+        B, H, L_K, E = keys.shape
+        _, _, L_Q, _ = queries.shape
+        K_sample = keys[:, :, torch.randint(0, L_K, (sample_k,), device=queries.device), :]
+        Q_K_sample = torch.matmul(queries, K_sample.transpose(-2, -1))
+        M = Q_K_sample.max(dim=-1)[0] - torch.div(Q_K_sample.sum(dim=-1), L_K)
+        M_top = M.topk(n_top, dim=-1, sorted=False)[1]
+        Q_reduce = torch.stack([queries[b, h, M_top[b, h], :] for b in range(B) for h in range(H)], dim=0).view(B, H, n_top, E)
+        return Q_reduce, M_top
+
+    def forward(self, queries, keys, values, attn_mask=None):
+        B, L_Q, H, D = queries.shape
+        _, L_K, _, _ = keys.shape
+        queries_p = queries.permute(0, 2, 1, 3)
+        keys_p = keys.permute(0, 2, 1, 3)
+        values_p = values.permute(0, 2, 1, 3)
+        U_part = min(max(1, int(self.factor * np.ceil(np.log(L_K)))), L_K)
+        u = min(max(1, int(self.factor * np.ceil(np.log(L_Q)))), L_Q)
+        Q_reduce, M_top = self._prob_sparse_scores(queries_p, keys_p, U_part, u)
+        scale = self.scale or 1.0 / np.sqrt(D)
+        scores_top = torch.matmul(Q_reduce, keys_p.transpose(-2, -1)) * scale
+        attn_top = torch.softmax(scores_top, dim=-1)
+        V_reduce = torch.matmul(self.dropout(attn_top), values_p)
+        V_sum = values_p.sum(dim=-2, keepdim=True)
+        context = V_sum.expand(B, H, L_Q, D).clone()
+        for b in range(B):
+            for h in range(H):
+                context[b, h, M_top[b, h], :] = V_reduce[b, h]
+        return context.permute(0, 2, 1, 3).contiguous(), None
+
+class ProbSparseAttentionLayer(nn.Module):
+    def __init__(self, attention, d_model, n_heads):
+        super().__init__()
+        d_keys = d_model // n_heads
+        d_values = d_model // n_heads
+        self.inner_attention = attention
+        self.query_projection = nn.Linear(d_model, d_keys * n_heads)
+        self.key_projection = nn.Linear(d_model, d_keys * n_heads)
+        self.value_projection = nn.Linear(d_model, d_values * n_heads)
+        self.out_projection = nn.Linear(d_values * n_heads, d_model)
+        self.n_heads = n_heads
+
+    def forward(self, queries, keys, values, attn_mask=None):
+        B, L, _ = queries.shape
+        _, S, _ = keys.shape
+        H = self.n_heads
+        queries = self.query_projection(queries).view(B, L, H, -1)
+        keys = self.key_projection(keys).view(B, S, H, -1)
+        values = self.value_projection(values).view(B, S, H, -1)
+        out, attn = self.inner_attention(queries, keys, values, attn_mask)
+        out = out.view(B, L, -1)
+        return self.out_projection(out), attn
+
+# Helper: Informer Architecture PyTorch Module (Official AAAI 2021)
 class InformerModel(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
-        self.lookback, self.horizon = lookback, horizon
+        self.lookback = lookback
+        self.horizon = horizon
         self.enc_proj = nn.Linear(num_features, d_model)
         self.pos_emb_enc = PositionalEmbedding(lookback, d_model)
         self.drop_enc = nn.Dropout(dropout_rate)
+
         self.num_layers = num_layers
-        self.enc_attn = nn.ModuleList([nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True) for _ in range(num_layers)])
+        self.enc_attn = nn.ModuleList([
+            ProbSparseAttentionLayer(ProbAttention(factor=5, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+            for _ in range(num_layers)
+        ])
         self.norm1_enc = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(num_layers)])
-        self.ffn_enc = nn.ModuleList([nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model)) for _ in range(num_layers)])
+        self.ffn_enc = nn.ModuleList([
+            nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model)) for _ in range(num_layers)
+        ])
         self.norm2_enc = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(num_layers)])
         self.distill = nn.ModuleList([DistillLayer(d_model) for _ in range(num_layers - 1)])
         self.drop = nn.Dropout(dropout_rate)
+
+        # Generative Decoder Components (Zero Placeholder Padding)
         dec_seq_len = lookback // 4 + horizon
         self.pos_emb_dec = PositionalEmbedding(dec_seq_len, d_model)
-        self.dec_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True)
+        self.dec_attn = ProbSparseAttentionLayer(ProbAttention(factor=5, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
         self.norm1_dec = nn.LayerNorm(d_model)
-        self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout_rate, batch_first=True)
+        self.cross_attn = ProbSparseAttentionLayer(ProbAttention(factor=5, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
         self.norm2_dec = nn.LayerNorm(d_model)
         self.out_head = nn.Linear(d_model * horizon, horizon)
+
     def forward(self, x):
-        bs = x.size(0)
+        # x: [batch, lookback, num_features]
+        batch_size = x.size(0)
         enc = self.drop_enc(self.pos_emb_enc(self.enc_proj(x)))
+
         for i in range(self.num_layers):
-            a, _ = self.enc_attn[i](enc, enc, enc)
-            enc = self.norm1_enc[i](enc + self.drop(a))
-            f = self.ffn_enc[i](enc)
-            enc = self.norm2_enc[i](enc + self.drop(f))
-            if i < self.num_layers - 1: enc = self.distill[i](enc)
+            attn_out, _ = self.enc_attn[i](enc, enc, enc)
+            enc = self.norm1_enc[i](enc + self.drop(attn_out))
+            ffn_out = self.ffn_enc[i](enc)
+            enc = self.norm2_enc[i](enc + self.drop(ffn_out))
+            if i < self.num_layers - 1:
+                enc = self.distill[i](enc)
+
+        # Generative-Style Decoder Construction: Start token + Zero placeholder
         start_token = enc[:, -self.lookback//4:, :]
-        dec_start = enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
-        dec_in = torch.cat([start_token, dec_start], dim=1)
+        zero_placeholder = torch.zeros(batch_size, self.horizon, enc.size(-1), device=x.device)
+        dec_in = torch.cat([start_token, zero_placeholder], dim=1)
         dec = self.pos_emb_dec(dec_in)
-        c_mask = torch.triu(torch.full((dec.size(1), dec.size(1)), float('-inf'), device=x.device), diagonal=1)
-        da, _ = self.dec_attn(dec, dec, dec, attn_mask=c_mask)
-        dec = self.norm1_dec(dec + self.drop(da))
-        ca, _ = self.cross_attn(dec, enc, enc)
-        dec = self.norm2_dec(dec + self.drop(ca))
-        return self.out_head(dec[:, -self.horizon:, :].reshape(bs, -1))
+
+        dec_attn_out, _ = self.dec_attn(dec, dec, dec)
+        dec = self.norm1_dec(dec + self.drop(dec_attn_out))
+        cross_attn_out, _ = self.cross_attn(queries=dec, keys=enc, values=enc)
+        dec = self.norm2_dec(dec + self.drop(cross_attn_out))
+
+        dec_target = dec[:, -self.horizon:, :]
+        out = self.out_head(dec_target.reshape(batch_size, -1))
+        return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):
@@ -273,7 +412,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=3),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=8),
         direction="minimize",
         study_name="02_hpo_ifm_pytorch_full"
     )
