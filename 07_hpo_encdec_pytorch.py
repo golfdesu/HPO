@@ -6,6 +6,12 @@ import time
 import subprocess
 import warnings
 import numpy as np
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -103,23 +109,21 @@ y_val_scaled   = scaler_y.transform(y_val.values.reshape(-1, 1)).flatten()
 LOOKBACK = 96
 HORIZON = 48
 
-def create_dataloader(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True):
+def create_windowed_tensors(X_data, y_data, lookback, horizon):
     X_seq, y_seq = [], []
     for i in range(len(X_data) - lookback - horizon + 1):
         X_seq.append(X_data[i : i + lookback])
         y_seq.append(y_data[i + lookback : i + lookback + horizon])
     X_t = torch.tensor(np.array(X_seq, dtype=np.float32))
     y_t = torch.tensor(np.array(y_seq, dtype=np.float32))
-    ds = TensorDataset(X_t, y_t)
-    return DataLoader(
-        ds,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        drop_last=shuffle,
-        num_workers=2,
-        pin_memory=(device.type == 'cuda'),
-        persistent_workers=True if shuffle else False
-    )
+    return X_t, y_t
+
+print("Pre-building sequence tensors...")
+X_train_t, y_train_t = create_windowed_tensors(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON)
+X_val_t, y_val_t     = create_windowed_tensors(X_val_scaled, y_val_scaled, LOOKBACK, HORIZON)
+
+train_dataset = TensorDataset(X_train_t, y_train_t)
+val_dataset   = TensorDataset(X_val_t, y_val_t)
 
 class PositionalEmbedding(nn.Module):
     def __init__(self, seq_len, d_model):
@@ -193,9 +197,9 @@ def objective(trial):
     extra_kwargs = {}
 
 
-    # FULL 100% Train dataset DataLoaders
-    train_loader = create_dataloader(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON, batch_size=batch_size, shuffle=True)
-    val_loader   = create_dataloader(X_val_scaled, y_val_scaled, LOOKBACK, HORIZON, batch_size=batch_size, shuffle=False)
+    # Pre-built TensorDataLoaders (Fast creation per trial)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=(device.type == 'cuda'))
+    val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=(device.type == 'cuda'))
 
     model = EncoderDecoderTransformer(
         lookback=LOOKBACK,
