@@ -135,61 +135,6 @@ class GaussianNoise(nn.Module):
             return x + torch.randn_like(x) * self.stddev
         return x
 # --- Model Definition ---
-# Helper 1: PyTorch DataLoader Creator
-def create_windowed_dataset_pytorch(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True, drop_last=None):
-    X_seq, y_seq = [], []
-    for i in range(len(X_data) - lookback - horizon + 1):
-        X_seq.append(X_data[i : i + lookback])
-        y_seq.append(y_data[i + lookback : i + lookback + horizon])
-    
-    X_tensor = torch.tensor(np.array(X_seq, dtype=np.float32))
-    y_tensor = torch.tensor(np.array(y_seq, dtype=np.float32))
-    
-    dataset = TensorDataset(X_tensor, y_tensor)
-    if drop_last is None:
-        drop_last = shuffle
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
-    return dataloader, np.array(X_seq, dtype=np.float32), np.array(y_seq, dtype=np.float32)
-
-# Helper: Positional Embedding Layer in PyTorch
-class PositionalEmbedding(nn.Module):
-    def __init__(self, seq_len, d_model):
-        super().__init__()
-        self.pos_emb = nn.Embedding(seq_len, d_model)
-    def forward(self, x):
-        positions = torch.arange(0, x.size(1), device=x.device)
-        return x + self.pos_emb(positions)
-
-# Helper: PyTorch Gaussian Noise Layer
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.01):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            noise = torch.randn_like(x) * self.stddev
-            return x + noise
-        return x
-
-# Helper: Metrics Evaluator Function
-def compute_metrics(actual, predicted, peak_threshold):
-    mae = mean_absolute_error(actual, predicted)
-    rmse = np.sqrt(mean_squared_error(actual, predicted))
-    r2 = r2_score(actual, predicted)
-    wape = (np.sum(np.abs(actual - predicted)) / np.sum(actual)) * 100
-
-    non_zero_mask = actual > 0
-    mape = np.mean(np.abs((actual[non_zero_mask] - predicted[non_zero_mask]) / actual[non_zero_mask])) * 100 if non_zero_mask.any() else np.nan
-
-    peak_mask = actual >= peak_threshold
-    if peak_mask.any():
-        mae_peak = mean_absolute_error(actual[peak_mask], predicted[peak_mask])
-        wape_peak = (np.sum(np.abs(actual[peak_mask] - predicted[peak_mask])) / np.sum(actual[peak_mask])) * 100
-    else:
-        mae_peak, wape_peak = np.nan, np.nan
-
-    return dict(mae=mae, rmse=rmse, r2=r2, wape=wape, mape=mape, mae_peak=mae_peak, wape_peak=wape_peak)
-
 # Helper: Series Decomposition Layer (Autoformer Core Component)
 class SeriesDecomp(nn.Module):
     def __init__(self, kernel_size=25):
