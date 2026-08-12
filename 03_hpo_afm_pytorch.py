@@ -170,11 +170,13 @@ class AutoCorrelation(nn.Module):
         
         tmp_values = values.repeat(1, 1, 2, 1)
         delays_agg = torch.zeros_like(values)
+        time_seq = torch.arange(length, device=values.device).unsqueeze(0)
+
         for i in range(top_k):
             pattern = tmp_corr[:, i].view(batch, 1, 1, 1)
-            for b in range(batch):
-                idx = index[b, i].item()
-                delays_agg[b:b+1] = delays_agg[b:b+1] + pattern[b:b+1] * tmp_values[b:b+1, :, idx:idx+length, :]
+            offsets = (index[:, i].unsqueeze(1) + time_seq).unsqueeze(1).unsqueeze(-1).expand(batch, head, length, channel)
+            sliced_values = torch.gather(tmp_values, 2, offsets)
+            delays_agg = delays_agg + pattern * sliced_values
         return delays_agg
 
     def forward(self, queries, keys, values, attn_mask=None):

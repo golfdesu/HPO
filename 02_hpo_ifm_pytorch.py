@@ -167,7 +167,8 @@ class ProbAttention(nn.Module):
         Q_K_sample = torch.matmul(queries, K_sample.transpose(-2, -1))
         M = Q_K_sample.max(dim=-1)[0] - torch.div(Q_K_sample.sum(dim=-1), L_K)
         M_top = M.topk(n_top, dim=-1, sorted=False)[1]
-        Q_reduce = torch.stack([queries[b, h, M_top[b, h], :] for b in range(B) for h in range(H)], dim=0).view(B, H, n_top, E)
+        M_top_expanded = M_top.unsqueeze(-1).expand(-1, -1, -1, E)
+        Q_reduce = torch.gather(queries, 2, M_top_expanded)
         return Q_reduce, M_top
 
     def forward(self, queries, keys, values, attn_mask=None):
@@ -185,9 +186,8 @@ class ProbAttention(nn.Module):
         V_reduce = torch.matmul(self.dropout(attn_top), values_p)
         V_sum = values_p.sum(dim=-2, keepdim=True)
         context = V_sum.expand(B, H, L_Q, D).clone()
-        for b in range(B):
-            for h in range(H):
-                context[b, h, M_top[b, h], :] = V_reduce[b, h]
+        M_top_expanded = M_top.unsqueeze(-1).expand(-1, -1, -1, D)
+        context.scatter_(2, M_top_expanded, V_reduce)
         return context.permute(0, 2, 1, 3).contiguous(), None
 
 class ProbSparseAttentionLayer(nn.Module):

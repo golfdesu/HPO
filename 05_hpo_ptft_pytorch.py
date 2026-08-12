@@ -180,12 +180,7 @@ class PatchEmbedding(nn.Module):
 
     def forward(self, x):
         # x shape: [batch * features, lookback, 1]
-        lookback = x.size(1)
-        patches = []
-        for i in range(0, lookback - self.patch_len + 1, self.stride):
-            p = x[:, i : i + self.patch_len, 0] # [batch * features, patch_len]
-            patches.append(p)
-        patches = torch.stack(patches, dim=1) # [batch * features, num_patches, patch_len]
+        patches = x.squeeze(-1).unfold(1, self.patch_len, self.stride) # [batch * features, num_patches, patch_len]
         return self.proj(patches)
 
 # Helper: Channel Independent Output Head (PatchTST Core)
