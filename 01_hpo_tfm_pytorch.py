@@ -32,16 +32,19 @@ except RuntimeError:
     pass
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print("PyTorch Version:", torch.__version__)
-print("Using Device:", device)
+if __name__ == '__main__':
+    print("PyTorch Version:", torch.__version__)
+    print("Using Device:", device)
+    if device.type == 'cuda':
+        print("GPU Model:", torch.cuda.get_device_name(0))
+    else:
+        print(f"CPU Multithreading Optimized with {num_cpus} threads")
+
 if device.type == 'cuda':
-    print("GPU Model:", torch.cuda.get_device_name(0))
     torch.cuda.set_per_process_memory_fraction(0.5, device=0)  # VRAM Limit 50%
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
-else:
-    print(f"CPU Multithreading Optimized with {num_cpus} threads")
 
 # Auto-load MSVC environment (PATH, INCLUDE, LIB) for torch.compile()
 vcvars_path = r"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
