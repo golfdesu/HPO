@@ -182,13 +182,14 @@ class AutoCorrelation(nn.Module):
     def forward(self, queries, keys, values, attn_mask=None):
         B, L, H, E = queries.shape
         _, S, _, D = values.shape
+        orig_L = L
         if L > S:
             zeros = torch.zeros(B, L - S, H, D, device=queries.device)
             values = torch.cat([values, zeros], dim=1)
             keys = torch.cat([keys, zeros], dim=1)
-        else:
-            values = values[:, :L, :, :]
-            keys = keys[:, :L, :, :]
+        elif L < S:
+            zeros = torch.zeros(B, S - L, H, E, device=queries.device)
+            queries = torch.cat([queries, zeros], dim=1)
 
         q_fft = torch.fft.rfft(queries.permute(0, 2, 3, 1), dim=-1)
         k_fft = torch.fft.rfft(keys.permute(0, 2, 3, 1), dim=-1)
@@ -198,7 +199,10 @@ class AutoCorrelation(nn.Module):
         values_perm = values.permute(0, 2, 1, 3)
         corr_perm = corr.permute(0, 1, 3, 2)
         out = self.time_delay_agg(values_perm, corr_perm)
-        return out.permute(0, 2, 1, 3).contiguous(), None
+        out = out.permute(0, 2, 1, 3).contiguous()
+        if orig_L < S:
+            out = out[:, :orig_L, :, :]
+        return out, None
 
 class AutoCorrelationLayer(nn.Module):
     def __init__(self, correlation, d_model, n_heads):

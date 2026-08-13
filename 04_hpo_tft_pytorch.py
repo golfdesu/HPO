@@ -171,40 +171,72 @@ class VariableSelectionNetwork(nn.Module):
         stack = torch.stack(processed, dim=2)
         return torch.sum(stack * weights, dim=2)
 
-# Helper: TFT Architecture PyTorch Module (Official IJF 2021)
-class TFTModel(nn.Module):
-    def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
-        super().__init__()
-        self.vsn = VariableSelectionNetwork(num_features, d_model, dropout_rate)
-        self.lstm_encoder = nn.LSTM(d_model, d_model, batch_first=True)
-        self.mha = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, dropout=dropout_rate, batch_first=True)
-        self.drop = nn.Dropout(dropout_rate)
-        self.norm = nn.LayerNorm(d_model)
-        self.grn_post = GatedResidualNetwork(d_model, d_model, dropout_rate)
+# Helper: Pinball (Quantile) Loss Function for TFT (P10, P50, P90)
+def pinball_loss(y_pred, y_true, quantiles=[0.1, 0.5, 0.9]):
+    # y_pred: [batch, horizon, len(quantiles)]
+    # y_true: [batch, horizon]
+    losses = []
+    for i, q in enumerate(quantiles):
+        error = y_true - y_pred[:, :, i]
+        losses.append(torch.max((q - 1) * error, q * error))
+    return torch.mean(torch.stack(losses, dim=-1))
 
-        self.head_fc1 = nn.Linear(d_model * 2, 128)
-        self.head_dropout = nn.Dropout(dropout_rate)
-        self.out_proj = nn.Linear(128, horizon)
+# Helper: TFT Architecture PyTorch Module (Official IJF 2021 Seq2Seq TFT with Quantiles)
+class TFTModel(nn.Module):
+    def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=1, dropout_rate=0.1, quantiles=[0.1, 0.5, 0.9]):
+        super().__init__()
+        self.lookback = lookback
+        self.horizon = horizon
+        self.num_features = num_features
+        self.quantiles = quantiles
+
+        # 1. Variable Selection Networks for Encoder & Decoder
+        self.vsn_enc = VariableSelectionNetwork(num_features, d_model, dropout_rate)
+        self.vsn_dec = VariableSelectionNetwork(num_features, d_model, dropout_rate)
+
+        # 2. Locality Processing: Seq2Seq LSTM (Encoder & Decoder LSTM)
+        self.lstm_enc = nn.LSTM(d_model, d_model, num_layers=num_layers, batch_first=True)
+        self.lstm_dec = nn.LSTM(d_model, d_model, num_layers=num_layers, batch_first=True)
+
+        # 3. Temporal Multi-Head Attention over Full Sequence (Lookback + Horizon)
+        self.mha = nn.MultiheadAttention(embed_dim=d_model, num_heads=num_heads, dropout=dropout_rate, batch_first=True)
+        self.drop_attn = nn.Dropout(dropout_rate)
+        self.norm_attn = nn.LayerNorm(d_model)
+
+        # 4. Post-Attention Gated Residual Network & Quantile Output Projection Layer
+        self.grn_post = GatedResidualNetwork(d_model, d_model, dropout_rate)
+        self.out_head = nn.Linear(d_model, len(quantiles))
 
     def forward(self, x):
         # x: [batch, lookback, num_features]
-        vsn_out = self.vsn(x)
-        lstm_out, _ = self.lstm_encoder(vsn_out)
-        
-        seq_len = lstm_out.size(1)
-        causal_mask = torch.triu(torch.full((seq_len, seq_len), float('-inf'), device=x.device), diagonal=1)
+        batch_size = x.size(0)
 
-        attn_out, _ = self.mha(lstm_out, lstm_out, lstm_out, attn_mask=causal_mask)
-        x_norm = self.norm(lstm_out + self.drop(attn_out))
-        grn_out = self.grn_post(x_norm)
+        # Construct Future Horizon Decoder Input Placeholder (Last-Step Continuation Baseline)
+        dec_placeholder = x[:, -1:, :].repeat(1, self.horizon, 1)
 
-        last_step = grn_out[:, -1, :]
-        global_avg = torch.mean(grn_out, dim=1)
-        ctx = torch.cat([last_step, global_avg], dim=-1)
+        # 1. Variable Selection
+        vsn_enc_out = self.vsn_enc(x)                  # [batch, lookback, d_model]
+        vsn_dec_out = self.vsn_dec(dec_placeholder)   # [batch, horizon, d_model]
 
-        h = F.relu(self.head_fc1(ctx))
-        h = self.head_dropout(h)
-        out = self.out_proj(h)
+        # 2. Seq2Seq LSTM Processing
+        enc_out, (h_n, c_n) = self.lstm_enc(vsn_enc_out)
+        dec_out, _ = self.lstm_dec(vsn_dec_out, (h_n, c_n))
+
+        # Concatenate Encoder & Decoder sequences -> [batch, lookback + horizon, d_model]
+        full_seq = torch.cat([enc_out, dec_out], dim=1)
+        total_len = full_seq.size(1)
+
+        # 3. Causal Multi-Head Self-Attention over Full Sequence
+        causal_mask = torch.triu(torch.full((total_len, total_len), float('-inf'), device=x.device), diagonal=1)
+        attn_out, _ = self.mha(full_seq, full_seq, full_seq, attn_mask=causal_mask)
+        norm_seq = self.norm_attn(full_seq + self.drop_attn(attn_out))
+
+        # 4. Post-Attention GRN on Decoder Horizon Portion
+        dec_norm = norm_seq[:, -self.horizon:, :]      # [batch, horizon, d_model]
+        grn_out = self.grn_post(dec_norm)             # [batch, horizon, d_model]
+
+        # 5. Quantile Output Projection per Horizon Step -> [batch, horizon, 3] (P10, P50, P90)
+        out = self.out_head(grn_out)
         return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
@@ -221,8 +253,7 @@ def objective(trial):
     weight_decay  = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
     batch_size    = trial.suggest_categorical('batch_size', [64, 128, 256])
     
-    extra_kwargs = {}
-
+    QUANTILES = [0.1, 0.5, 0.9]
 
     # Pre-built TensorDataLoaders (Fast creation per trial)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=(device.type == 'cuda'))
@@ -237,10 +268,9 @@ def objective(trial):
         d_ff=d_ff,
         num_layers=num_layers,
         dropout_rate=dropout_rate,
-        **extra_kwargs
+        quantiles=QUANTILES
     ).to(device)
 
-    criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Extended FULL Search: 20 Epochs with Early Stopping Patience = 5
@@ -254,7 +284,7 @@ def objective(trial):
         for b_X, b_y in train_loader:
             b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
             optimizer.zero_grad(set_to_none=True)
-            loss = criterion(model(b_X), b_y)
+            loss = pinball_loss(model(b_X), b_y, QUANTILES)
             loss.backward()
             optimizer.step()
             time.sleep(0.005)  # Rest GPU per batch to keep temperature cool
@@ -264,7 +294,7 @@ def objective(trial):
         with torch.inference_mode():
             for b_X, b_y in val_loader:
                 b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
-                loss = criterion(model(b_X), b_y)
+                loss = pinball_loss(model(b_X), b_y, QUANTILES)
                 time.sleep(0.002)
                 val_loss += loss.item() * b_X.size(0)
         val_loss /= len(val_loader.dataset)
