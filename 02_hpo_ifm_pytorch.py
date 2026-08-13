@@ -353,7 +353,7 @@ if __name__ == '__main__':
     print("=" * 65)
     print("🚀 Informer PyTorch FULL HPO (AAAI 2021)")
     print("=" * 65)
-    print("Starting FULL Optuna Study (20 Trials on 100% Data)...\n")
+    print("Starting FULL Optuna Study (30 Trials on 100% Data)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         study_name="02_hpo_ifm_pytorch_full"
     )
 
-    study.optimize(objective, n_trials=20)
+    study.optimize(objective, n_trials=30)
 
     print("\n" + "=" * 65)
     print("🏆 BEST HYPERPARAMETERS FOUND (FULL SEARCH):")
