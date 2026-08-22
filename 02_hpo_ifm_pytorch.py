@@ -184,8 +184,8 @@ class ProbAttention(nn.Module):
         scores_top = torch.matmul(Q_reduce, keys_p.transpose(-2, -1)) * scale
         attn_top = torch.softmax(scores_top, dim=-1)
         V_reduce = torch.matmul(self.dropout(attn_top), values_p)
-        V_sum = values_p.sum(dim=-2, keepdim=True)
-        context = V_sum.expand(B, H, L_Q, D).clone()
+        V_mean = values_p.mean(dim=-2, keepdim=True)  # official Informer: V.mean(dim=-2) for non-top-u queries
+        context = V_mean.expand(B, H, L_Q, D).clone()
         M_top_expanded = M_top.unsqueeze(-1).expand(-1, -1, -1, D)
         context.scatter_(2, M_top_expanded, V_reduce)
         return context.permute(0, 2, 1, 3).contiguous(), None

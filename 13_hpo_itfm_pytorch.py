@@ -97,6 +97,14 @@ scaler_y = MinMaxScaler()
 y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1)).flatten()
 y_val_scaled   = scaler_y.transform(y_val.values.reshape(-1, 1)).flatten()
 
+# iTransformer (paper, ICLR 2024): each variate is a token; the shared head forecasts
+# EVERY variate's own future and the target's forecast is read from the target token.
+# The target series must therefore be one of the input variates -> append scaled y.
+TARGET_CH_IDX = X_train_scaled.shape[1]  # index of the appended target variate
+X_train_scaled = np.concatenate([X_train_scaled, y_train_scaled.reshape(-1, 1)], axis=1)
+X_val_scaled   = np.concatenate([X_val_scaled,   y_val_scaled.reshape(-1, 1)], axis=1)
+print(f"Target variate appended at index {TARGET_CH_IDX} (total variates: {X_train_scaled.shape[1]})")
+
 # Subsample 30% for fast HPO search
 sub_len = int(len(X_train_scaled) * 0.3)
 X_train_hpo = X_train_scaled[-sub_len:]
@@ -126,20 +134,26 @@ class iTransformerModel(nn.Module):
         super().__init__()
         self.variate_proj = nn.Linear(lookback, d_model)
         self.drop_in = nn.Dropout(dropout_rate)
+        # Official iTransformer (THUML): post-norm layers + GELU activation
+        # + a FINAL LayerNorm after the whole stack (Encoder(norm_layer=LayerNorm)).
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model, nhead=num_heads, dim_feedforward=d_ff,
-            dropout=dropout_rate, batch_first=True, activation='relu'
+            dropout=dropout_rate, batch_first=True, activation='gelu'
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=num_layers,
+            norm=nn.LayerNorm(d_model)   # official: final LayerNorm over variate tokens
+        )
         self.output_proj = nn.Linear(d_model, horizon)
-        self.variate_agg = nn.Linear(num_features, 1)
 
     def forward(self, x):
+        # x: [batch, lookback, num_features] - last variate is the appended target series
         x = x.transpose(1, 2)
         x = self.drop_in(self.variate_proj(x))
         x = self.encoder(x)
         x = self.output_proj(x)
-        x = self.variate_agg(x.transpose(1, 2)).squeeze(-1)
+        # Paper-faithful: read the forecast directly from the target variate token
+        x = x[:, TARGET_CH_IDX, :]
         return x
 
 # ---------------------------------------------------------

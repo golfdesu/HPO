@@ -138,19 +138,18 @@ class GaussianNoise(nn.Module):
 # --- Model Definition ---
 # Helper: Series Decomposition Layer (Autoformer Core Component)
 class SeriesDecomp(nn.Module):
+    # Official Autoformer moving_avg: replicate edge padding (no zero padding)
     def __init__(self, kernel_size=25):
         super().__init__()
         self.kernel_size = kernel_size
-        self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
+        self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1)
 
     def forward(self, x):
         # x shape: [batch, seq_len, d_model]
-        x_tr = x.transpose(1, 2)
-        trend = self.avg_pool(x_tr).transpose(1, 2)
-        if trend.size(1) > x.size(1):
-            trend = trend[:, :x.size(1), :]
-        elif trend.size(1) < x.size(1):
-            trend = F.pad(trend, (0, 0, 0, x.size(1) - trend.size(1)))
+        front = x[:, :1, :].repeat(1, (self.kernel_size - 1) // 2, 1)
+        end = x[:, -1:, :].repeat(1, self.kernel_size - 1 - (self.kernel_size - 1) // 2, 1)
+        x_pad = torch.cat([front, x, end], dim=1)
+        trend = self.avg_pool(x_pad.transpose(1, 2)).transpose(1, 2)
         seasonal = x - trend
         return seasonal, trend
 
@@ -227,6 +226,37 @@ class AutoCorrelationLayer(nn.Module):
         out = out.view(B, L, -1)
         return self.out_projection(out), attn
 
+# Helper: Decoder Layer (official Autoformer - decomposition after each sublayer,
+# returns seasonal part + accumulated trend contribution)
+class AutoformerDecoderLayer(nn.Module):
+    def __init__(self, d_model, num_heads, d_ff, dropout_rate):
+        super().__init__()
+        self.self_attn = AutoCorrelationLayer(AutoCorrelation(factor=1, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+        self.cross_attn = AutoCorrelationLayer(AutoCorrelation(factor=1, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+        self.conv1 = nn.Conv1d(d_model, d_ff, kernel_size=1)
+        self.conv2 = nn.Conv1d(d_ff, d_model, kernel_size=1)
+        self.decomp1 = SeriesDecomp(kernel_size=25)
+        self.decomp2 = SeriesDecomp(kernel_size=25)
+        self.decomp3 = SeriesDecomp(kernel_size=25)
+        self.dropout = nn.Dropout(dropout_rate)
+
+    def forward(self, seasonal, enc_out, trend_part):
+        # 1) Masked self-attention over decoder positions + decomposition
+        res, _ = self.self_attn(seasonal, seasonal, seasonal)
+        seasonal, trend = self.decomp1(seasonal + self.dropout(res))
+        trend_part = trend_part + trend
+        # 2) Cross-attention to encoder output + decomposition
+        res, _ = self.cross_attn(seasonal, enc_out, enc_out)
+        seasonal, trend = self.decomp2(seasonal + self.dropout(res))
+        trend_part = trend_part + trend
+        # 3) Position-wise FFN + decomposition
+        y = F.relu(self.conv1(seasonal.transpose(1, 2)))
+        y = self.dropout(y)
+        y = self.conv2(y).transpose(1, 2)
+        seasonal, trend = self.decomp3(seasonal + self.dropout(y))
+        trend_part = trend_part + trend
+        return seasonal, trend_part
+
 # Helper: Autoformer Architecture PyTorch Module
 class AutoformerModel(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
@@ -248,14 +278,18 @@ class AutoformerModel(nn.Module):
         self.decomp2_enc = nn.ModuleList([SeriesDecomp(kernel_size=25) for _ in range(num_layers)])
         self.drop = nn.Dropout(dropout_rate)
 
-        # Decoder Auto-Correlation & decomp
-        self.cross_attn = AutoCorrelationLayer(AutoCorrelation(factor=1, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
-        self.decomp_dec = SeriesDecomp(kernel_size=25)
-        self.out_head = nn.Linear(d_model * horizon, horizon)
+        # Decoder: official Autoformer structure (masked self-attn -> cross-attn -> FFN,
+        # series decomposition after every sublayer, progressive trend accumulation)
+        self.dec_layers = nn.ModuleList([
+            AutoformerDecoderLayer(d_model, num_heads, d_ff, dropout_rate)
+            for _ in range(num_layers)
+        ])
+        self.decomp_final = SeriesDecomp(kernel_size=25)
+        self.seasonal_proj = nn.Linear(d_model, 1)
+        self.trend_proj = nn.Linear(d_model, 1)
 
     def forward(self, x):
         # x: [batch, lookback, num_features]
-        batch_size = x.size(0)
         x_proj = self.proj(x)
         seasonal_enc, trend_enc = self.decomp_init(x_proj)
 
@@ -265,16 +299,18 @@ class AutoformerModel(nn.Module):
             ffn_out = self.ffn_enc[i](seasonal_enc)
             seasonal_enc, _ = self.decomp2_enc[i](seasonal_enc + self.drop(ffn_out))
 
-        trend_part = trend_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
-        seasonal_part = seasonal_enc[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
+        # Paper-style decoder init:
+        #   seasonal starts at zero, trend starts from mean-pooled encoder trend
+        seasonal_dec = torch.zeros(x.size(0), self.horizon, seasonal_enc.size(-1), device=x.device)
+        trend_dec = trend_enc.mean(dim=1, keepdim=True).repeat(1, self.horizon, 1)
 
-        cross_attn_out, _ = self.cross_attn(queries=seasonal_part, keys=seasonal_enc, values=seasonal_enc)
-        seasonal_dec = seasonal_part + self.drop(cross_attn_out)
-        seasonal_dec, trend_extra = self.decomp_dec(seasonal_dec)
-        trend_part = trend_part + trend_extra
+        for i in range(self.num_layers):
+            seasonal_dec, trend_dec = self.dec_layers[i](seasonal_dec, seasonal_enc, trend_dec)
 
-        combined = seasonal_dec + trend_part
-        out = self.out_head(combined.reshape(batch_size, -1))
+        # Final decomposition + separate seasonal/trend projections summed
+        seasonal_dec, trend_end = self.decomp_final(seasonal_dec)
+        trend_out = trend_dec + trend_end
+        out = self.seasonal_proj(seasonal_dec).squeeze(-1) + self.trend_proj(trend_out).squeeze(-1)
         return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---

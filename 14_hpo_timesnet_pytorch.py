@@ -145,24 +145,37 @@ class TimesBlock(nn.Module):
 
     def forward(self, x):
         B, T, C = x.size()
-        x_mean   = x.mean(dim=-1)
-        xf       = torch.fft.rfft(x_mean, dim=1)
-        freq_abs = xf.abs().mean(dim=0)
-        freq_abs[0] = 0
-        top_k_actual = min(self.top_k, freq_abs.size(0) - 1)
-        _, top_freq_idx = torch.topk(freq_abs, top_k_actual)
+
+        # FFT-based period detection (official impl.: amplitude averaged over
+        # batch & channels before selecting top-k frequencies)
+        xf = torch.fft.rfft(x.mean(dim=-1), dim=1)   # [B, T//2+1]
+        amp_all = xf.abs()                            # per-sample amplitudes [B, F]
+        freq_scores = torch.cat(
+            [torch.zeros_like(amp_all[:, :1]), amp_all[:, 1:]], dim=1
+        ).mean(dim=0)                                 # drop DC (no in-place op) + batch mean -> [F]
+        top_k_actual = min(self.top_k, freq_scores.size(0) - 1)
+        _, top_freq_idx = torch.topk(freq_scores, top_k_actual)
+
+        # Paper (ICLR 2023): ADAPTIVE aggregation - each period weighted by
+        # softmax of its FFT amplitude, not a flat mean
         period_list = []
+        weights_list = []
         for idx in top_freq_idx.detach().cpu().numpy():
             p = T // max(int(idx), 1)
             if p >= 2:
                 period_list.append(p)
+                weights_list.append(amp_all[:, int(idx)].mean())
         if not period_list:
-            period_list = [48]
+            period_list = [48]                        # fallback to known daily period
+            weights_list = None
 
         res_list = []
         for period in period_list:
             pad_len = (period - T % period) % period
-            xp = F.pad(x, (0, 0, 0, pad_len)) if pad_len > 0 else x
+            if pad_len > 0:
+                xp = F.pad(x.transpose(1, 2), (0, pad_len), mode='replicate').transpose(1, 2)
+            else:
+                xp = x                                # [B, T+pad, C]
             Tp = T + pad_len
             xp = xp.reshape(B, Tp // period, period, C).permute(0, 3, 1, 2)
             xp = self.conv2(self.conv1(xp))
@@ -170,7 +183,12 @@ class TimesBlock(nn.Module):
             xp = xp[:, :T, :]
             res_list.append(xp)
 
-        res = torch.stack(res_list, dim=-1).mean(dim=-1)
+        res_stack = torch.stack(res_list, dim=-1)     # [B, T, C, k]
+        if weights_list is not None:
+            w = torch.softmax(torch.stack(weights_list), dim=0)   # [k] adaptive weights
+            res = (res_stack * w.view(1, 1, 1, -1)).sum(dim=-1)
+        else:
+            res = res_stack.mean(dim=-1)
         return self.norm(x + res)
 
 
@@ -185,20 +203,21 @@ class TimesNetModel(nn.Module):
             for _ in range(num_layers)
         ])
         self.norm = nn.LayerNorm(d_model)
-        self.head = nn.Sequential(
-            nn.Linear(d_model, 128),
-            nn.GELU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(128, horizon)
-        )
+
+        # Official TimesNet forecasting head (thuml/Time-Series-Library):
+        #   predict_linear projects along the TIME axis (keeps temporal order/resolution),
+        #   then target_proj maps d_model -> 1 (target series). NO temporal pooling.
+        self.predict_linear = nn.Linear(lookback, horizon)   # time-axis projection: [B, d, L] -> [B, d, H]
+        self.target_proj = nn.Linear(d_model, 1)             # per-timestep projection to the target series
 
     def forward(self, x):
         x = self.drop(self.proj_in(x))
         for block in self.blocks:
             x = block(x)
-        x = self.norm(x)
-        x = x.mean(dim=1)
-        return self.head(x)
+        x = self.norm(x)                                             # [B, L, d]
+        x = self.predict_linear(x.transpose(1, 2)).transpose(1, 2)   # [B, H, d] — temporal projection
+        out = self.target_proj(x).squeeze(-1)                        # [B, H]
+        return out
 
 # ---------------------------------------------------------
 # 3. Optuna Objective
