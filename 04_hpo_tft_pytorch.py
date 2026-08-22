@@ -153,37 +153,77 @@ class GatedResidualNetwork(nn.Module):
         return self.norm(self.res_proj(x) + a * g)
 
 # Helper: Variable Selection Network (VSN - TFT Official IJF 2021)
+# Helper: Fully Vectorized Variable Selection Network (VSN - TFT Official IJF 2021)
 class VariableSelectionNetwork(nn.Module):
     def __init__(self, num_features=27, d_model=64, dropout_rate=0.1):
         super().__init__()
         self.num_features = num_features
+        self.d_model = d_model
+
+        # Feature Selection Weights GRN ([B, T, F] -> weights: [B, T, F, 1])
         self.weight_grn = GatedResidualNetwork(num_features, num_features, dropout_rate)
-        self.feature_grns = nn.ModuleList([GatedResidualNetwork(1, d_model, dropout_rate) for _ in range(num_features)])
+
+        # Vectorized Feature-Specific GRN Weights (Parallel processing in 4D Tensor)
+        self.dense1_w = nn.Parameter(torch.empty(num_features, d_model))
+        self.dense1_b = nn.Parameter(torch.empty(num_features, d_model))
+
+        self.dense2_w = nn.Parameter(torch.empty(num_features, d_model, d_model))
+        self.dense2_b = nn.Parameter(torch.empty(num_features, d_model))
+
+        self.gate_w = nn.Parameter(torch.empty(num_features, d_model))
+        self.gate_b = nn.Parameter(torch.empty(num_features, d_model))
+
+        self.res_w = nn.Parameter(torch.empty(num_features, d_model))
+        self.res_b = nn.Parameter(torch.empty(num_features, d_model))
+
+        self.drop = nn.Dropout(dropout_rate)
+        self.norm = nn.LayerNorm(d_model)
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for w in [self.dense1_w, self.gate_w, self.res_w]:
+            nn.init.xavier_uniform_(w.unsqueeze(1))
+        nn.init.xavier_uniform_(self.dense2_w)
+        for b in [self.dense1_b, self.dense2_b, self.gate_b, self.res_b]:
+            nn.init.zeros_(b)
 
     def forward(self, inputs):
-        # inputs: [batch, seq_len, num_features]
+        # inputs: [B, T, F]
         weights = torch.softmax(self.weight_grn(inputs), dim=-1).unsqueeze(-1)
-        processed = []
-        for i in range(self.num_features):
-            feat_i = inputs[:, :, i:i+1]
-            grn_i = self.feature_grns[i](feat_i)
-            processed.append(grn_i)
-        stack = torch.stack(processed, dim=2)
-        return torch.sum(stack * weights, dim=2)
+        x_unflat = inputs.unsqueeze(-1) # [B, T, F, 1]
 
-# Helper: Pinball (Quantile) Loss Function for TFT (P10, P50, P90)
+        # 1 -> d_model transformations using broadcasting
+        w1 = self.dense1_w.view(1, 1, self.num_features, self.d_model)
+        b1 = self.dense1_b.view(1, 1, self.num_features, self.d_model)
+        d1 = F.elu(x_unflat * w1 + b1) # [B, T, F, d_model]
+
+        # d_model -> d_model transformation
+        b2 = self.dense2_b.view(1, 1, self.num_features, self.d_model)
+        d2_linear = torch.einsum('btfi,fio->btfo', d1, self.dense2_w)
+        d2 = self.drop(d2_linear + b2)
+
+        wg = self.gate_w.view(1, 1, self.num_features, self.d_model)
+        bg = self.gate_b.view(1, 1, self.num_features, self.d_model)
+        g = torch.sigmoid(x_unflat * wg + bg)
+
+        wr = self.res_w.view(1, 1, self.num_features, self.d_model)
+        br = self.res_b.view(1, 1, self.num_features, self.d_model)
+        res = x_unflat * wr + br
+
+        processed = self.norm(res + d2 * g) # [B, T, F, d_model]
+        return torch.sum(processed * weights, dim=2) # [B, T, d_model]
+
+# Helper: Vectorized Pinball (Quantile) Loss Function for TFT (P10, P50, P90)
 def pinball_loss(y_pred, y_true, quantiles=[0.1, 0.5, 0.9]):
     # y_pred: [batch, horizon, len(quantiles)]
     # y_true: [batch, horizon]
-    losses = []
-    for i, q in enumerate(quantiles):
-        error = y_true - y_pred[:, :, i]
-        losses.append(torch.max((q - 1) * error, q * error))
-    return torch.mean(torch.stack(losses, dim=-1))
+    error = y_true.unsqueeze(-1) - y_pred
+    q = torch.tensor(quantiles, device=y_pred.device).view(1, 1, -1)
+    return torch.mean(torch.max((q - 1) * error, q * error))
 
 # Helper: TFT Architecture PyTorch Module (Official IJF 2021 Seq2Seq TFT with Quantiles)
 class TFTModel(nn.Module):
-    def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=1, dropout_rate=0.1, quantiles=[0.1, 0.5, 0.9]):
+    def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, num_layers=1, dropout_rate=0.1, quantiles=[0.1, 0.5, 0.9]):
         super().__init__()
         self.lookback = lookback
         self.horizon = horizon
@@ -203,16 +243,23 @@ class TFTModel(nn.Module):
         self.drop_attn = nn.Dropout(dropout_rate)
         self.norm_attn = nn.LayerNorm(d_model)
 
+        # Register Persistent Buffer for Causal Mask
+        total_len = lookback + horizon
+        self.register_buffer(
+            "causal_mask",
+            torch.triu(torch.full((total_len, total_len), float('-inf')), diagonal=1),
+            persistent=False
+        )
+
         # 4. Post-Attention Gated Residual Network & Quantile Output Projection Layer
         self.grn_post = GatedResidualNetwork(d_model, d_model, dropout_rate)
         self.out_head = nn.Linear(d_model, len(quantiles))
 
     def forward(self, x):
         # x: [batch, lookback, num_features]
-        batch_size = x.size(0)
 
-        # Construct Future Horizon Decoder Input Placeholder (Last-Step Continuation Baseline)
-        dec_placeholder = x[:, -1:, :].repeat(1, self.horizon, 1)
+        # Construct Future Horizon Decoder Input Placeholder (Last-Step Continuation Baseline - Expand View)
+        dec_placeholder = x[:, -1:, :].expand(-1, self.horizon, -1)
 
         # 1. Variable Selection
         vsn_enc_out = self.vsn_enc(x)                  # [batch, lookback, d_model]
@@ -224,11 +271,9 @@ class TFTModel(nn.Module):
 
         # Concatenate Encoder & Decoder sequences -> [batch, lookback + horizon, d_model]
         full_seq = torch.cat([enc_out, dec_out], dim=1)
-        total_len = full_seq.size(1)
 
-        # 3. Causal Multi-Head Self-Attention over Full Sequence
-        causal_mask = torch.triu(torch.full((total_len, total_len), float('-inf'), device=x.device), diagonal=1)
-        attn_out, _ = self.mha(full_seq, full_seq, full_seq, attn_mask=causal_mask)
+        # 3. Causal Multi-Head Self-Attention over Full Sequence using Buffer Mask
+        attn_out, _ = self.mha(full_seq, full_seq, full_seq, attn_mask=self.causal_mask)
         norm_seq = self.norm_attn(full_seq + self.drop_attn(attn_out))
 
         # 4. Post-Attention GRN on Decoder Horizon Portion
@@ -244,8 +289,6 @@ def objective(trial):
     d_model = trial.suggest_categorical('d_model', [32, 64, 128])
     valid_heads = [h for h in [2, 4, 8] if d_model % h == 0]
     num_heads = trial.suggest_categorical('num_heads', valid_heads)
-    ff_mult = trial.suggest_categorical('d_ff_mult', [2, 4])
-    d_ff = d_model * ff_mult
     
     num_layers   = trial.suggest_int('num_layers', 1, 3)
     dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.2, step=0.05)
@@ -265,7 +308,6 @@ def objective(trial):
         horizon=HORIZON,
         d_model=d_model,
         num_heads=num_heads,
-        d_ff=d_ff,
         num_layers=num_layers,
         dropout_rate=dropout_rate,
         quantiles=QUANTILES
@@ -287,7 +329,6 @@ def objective(trial):
             loss = pinball_loss(model(b_X), b_y, QUANTILES)
             loss.backward()
             optimizer.step()
-            time.sleep(0.005)  # Rest GPU per batch to keep temperature cool
 
         model.eval()
         val_loss = 0.0
@@ -295,7 +336,6 @@ def objective(trial):
             for b_X, b_y in val_loader:
                 b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
                 loss = pinball_loss(model(b_X), b_y, QUANTILES)
-                time.sleep(0.002)
                 val_loss += loss.item() * b_X.size(0)
         val_loss /= len(val_loader.dataset)
 
