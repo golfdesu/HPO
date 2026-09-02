@@ -155,19 +155,19 @@ class PureSelectiveSSM(nn.Module):
         # Discretize continuous matrices: A_bar, B_bar
         # delta: [B, L, d_model, 1], A: [1, 1, d_model, d_state]
         delta_exp = delta.unsqueeze(-1)
-        A_bar = torch.exp(delta_exp * A.unsqueeze(0).unsqueeze(0))  # [B, L, d_model, d_state]
-        B_bar = delta_exp * B_t.unsqueeze(2)                        # [B, L, d_model, d_state]
+        A_bar = torch.exp(delta_exp * A.unsqueeze(0).unsqueeze(0))
 
-        # Recurrent scan over sequence length L
+        # Pre-vectorize input projection into state dimension (single broadcasted GPU operation)
+        Bx = (delta_exp * B_t.unsqueeze(2)) * x.unsqueeze(-1)
+
+        # Pre-allocated recurrent scan (eliminates dynamic list appends + torch.stack overhead)
         h = torch.zeros(batch, d_model, self.d_state, device=x.device)
-        y_list = []
+        y = torch.empty(batch, seq_len, d_model, device=x.device)
         for t in range(seq_len):
-            h = A_bar[:, t] * h + B_bar[:, t] * x[:, t].unsqueeze(-1)
-            y_t = torch.sum(h * C_t[:, t].unsqueeze(1), dim=-1)  # [B, d_model]
-            y_list.append(y_t)
+            h = A_bar[:, t] * h + Bx[:, t]
+            y[:, t] = torch.sum(h * C_t[:, t].unsqueeze(1), dim=-1)
 
-        y = torch.stack(y_list, dim=1) + x * self.D  # [B, L, d_model]
-        return y
+        return y + x * self.D
 
 class SMambaBlock(nn.Module):
     """
