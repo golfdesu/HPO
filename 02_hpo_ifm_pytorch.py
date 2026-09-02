@@ -372,11 +372,25 @@ if __name__ == '__main__':
 
     # Save best parameters to JSON
     output_json = "02_hpo_ifm_pytorch_best_params.json"
+    # Retrieve top 10 trials sorted by value
+    completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+    completed_trials.sort(key=lambda t: t.value)
+    top_10 = [
+        {
+            "rank": rank + 1,
+            "trial_number": t.number,
+            "val_loss": float(t.value),
+            "params": t.params
+        }
+        for rank, t in enumerate(completed_trials[:10])
+    ]
+
     best_data = {
         "model_name": "02_hpo_ifm_pytorch",
         "search_mode": "FULL_100_PERCENT",
         "best_val_loss": float(study.best_value),
-        "best_params": study.best_params
+        "best_params": study.best_params,
+        "top_10_trials": top_10
     }
     with open(output_json, "w", encoding="utf-8") as f:
         json.dump(best_data, f, indent=4)
