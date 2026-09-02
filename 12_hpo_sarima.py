@@ -8,12 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
-try:
-    from statsmodels.tsa.statespace.sarimax import SARIMAX
-except ImportError:
-    print("Installing statsmodels...")
-    os.system("pip install statsmodels")
-    from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 try:
     import optuna

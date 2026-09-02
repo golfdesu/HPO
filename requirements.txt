@@ -145,3 +145,4 @@ wheel==0.48.0
 widgetsnbextension==4.0.15
 wrapt==2.3.0
 xgboost==3.4.1
+statsmodels==0.14.4

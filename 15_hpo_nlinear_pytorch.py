@@ -86,18 +86,24 @@ y_val_scaled   = scaler_y.transform(y_val.values.reshape(-1, 1)).flatten()
 LOOKBACK = 96
 HORIZON  = 48
 
-def create_dataloader_univariate(y_data, lookback, horizon, batch_size=64, shuffle=True):
+def create_windowed_tensors_univariate(y_data, lookback, horizon):
     X_seq, y_seq = [], []
     for i in range(len(y_data) - lookback - horizon + 1):
         X_seq.append(y_data[i : i + lookback])
         y_seq.append(y_data[i + lookback : i + lookback + horizon])
     X_t = torch.tensor(np.array(X_seq, dtype=np.float32))  # [N, lookback]
     y_t = torch.tensor(np.array(y_seq, dtype=np.float32))  # [N, horizon]
-    ds  = TensorDataset(X_t, y_t)
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=shuffle)
+    return X_t, y_t
+
+print("Pre-building univariate sequence tensors on 100% Data...")
+X_train_t, y_train_t = create_windowed_tensors_univariate(y_train_scaled, LOOKBACK, HORIZON)
+X_val_t,   y_val_t   = create_windowed_tensors_univariate(y_val_scaled,   LOOKBACK, HORIZON)
+
+train_dataset = TensorDataset(X_train_t, y_train_t)
+val_dataset   = TensorDataset(X_val_t,   y_val_t)
 
 if __name__ == '__main__':
-    print(f"Dataset Loaded from {data_path}! Train: {len(y_train_scaled)}, Val: {len(y_val_scaled)}")
+    print(f"Dataset Loaded from {data_path}! Train Sequences: {len(train_dataset)}, Val Sequences: {len(val_dataset)}")
 
 # ---------------------------------------------------------
 # 2. NLinear Architecture (Zeng et al., AAAI 2023)
@@ -128,8 +134,8 @@ def objective(trial):
     weight_decay = trial.suggest_float('weight_decay', 1e-7, 1e-3, log=True)
     batch_size   = trial.suggest_categorical('batch_size', [32, 64, 128, 256])
 
-    train_loader = create_dataloader_univariate(y_train_scaled, LOOKBACK, HORIZON, batch_size, shuffle=True)
-    val_loader   = create_dataloader_univariate(y_val_scaled,   LOOKBACK, HORIZON, batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=(device.type == 'cuda'))
+    val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=(device.type == 'cuda'))
 
     model = NLinear(lookback=LOOKBACK, horizon=HORIZON).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
