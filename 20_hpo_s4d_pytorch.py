@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import gc
 import json
@@ -168,7 +168,7 @@ class S4DBlock(nn.Module):
         self.kernel = S4DKernel(d_model, d_state=d_state)
         self.D = nn.Parameter(torch.randn(d_model))
         self.linear1 = nn.Linear(d_model, d_model * 2)
-        self.linear2 = nn.Linear(d_model * 2, d_model)
+        self.linear2 = nn.Linear(d_model, d_model)
         self.norm = nn.LayerNorm(d_model)
         self.drop = nn.Dropout(dropout_rate)
 

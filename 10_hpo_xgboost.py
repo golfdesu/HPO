@@ -43,6 +43,12 @@ def set_seed(seed=42):
 
 set_seed(SEED)
 
+try:
+    import torch
+    xgb_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+except ImportError:
+    xgb_device = 'cpu'
+
 
 # ---------------------------------------------------------
 # 1. Dataset Loading and Tabular Preprocessing
@@ -106,7 +112,7 @@ def objective(trial):
         'objective': 'reg:squarederror',
         'eval_metric': 'mae',
         'tree_method': 'hist',
-        'device': 'cuda',  # GPU Acceleration for H100
+        'device': xgb_device,
         'n_estimators': 1000,
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
         'max_depth': trial.suggest_int('max_depth', 3, 8),
