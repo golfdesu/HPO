@@ -33,7 +33,8 @@ Welcome to the **EV Charging Load Forecasting & HPO Engine** workspace. This rep
 | `12_hpo_sarima.py` | **SARIMA** | Statistical Seasonal ARIMA $(p,d,q)(P,D,Q)_{48}$ | Box & Jenkins (1970) |
 | `13_hpo_itfm_pytorch.py` | **iTransformer** | Inverted Tokens + Variate-Attention + Target Readout | Liu et al. (ICLR 2024) |
 | `14_hpo_timesnet_pytorch.py` | **TimesNet** | 2D-FFT Top-k Periods + 2D Inception Block + Adaptive Softmax | Wu et al. (ICLR 2023) |
-| `15_hpo_nlinear_pytorch.py` | **NLinear** | Last-value Normalization: $\hat{Y} = W(X - X_{-1}) + X_{-1}$ | Zeng et al. (AAAI 2023) |
+| 15_hpo_nlinear_pytorch.py | **NLinear** | Last-value Normalization: $\hat{Y} = W(X - X_{-1}) + X_{-1}$ | Zeng et al. (AAAI 2023) |
+| 16_hpo_gru_pytorch.py | **GRU Baseline** | Gated Recurrent Unit (Reset/Update Gates) + Multi-Feature Proj | Cho et al. (EMNLP 2014); Chung et al. (2014) |
 
 ---
 
