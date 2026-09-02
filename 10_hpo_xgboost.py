@@ -106,22 +106,22 @@ def objective(trial):
         'objective': 'reg:squarederror',
         'eval_metric': 'mae',
         'tree_method': 'hist',
+        'device': 'cuda',  # GPU Acceleration for H100
         'n_estimators': 1000,
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
-        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'max_depth': trial.suggest_int('max_depth', 3, 8),
         'min_child_weight': trial.suggest_float('min_child_weight', 1.0, 10.0),
         'subsample': trial.suggest_float('subsample', 0.5, 1.0),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 1e-4, 10.0, log=True),
         'reg_lambda': trial.suggest_float('reg_lambda', 1e-4, 10.0, log=True),
         'random_state': 42,
-        'n_jobs': -1,
         'verbosity': 0,
     }
 
     step_maes = []
     for step in EVAL_STEPS:
-        model = xgb.XGBRegressor(**params, early_stopping_rounds=30)
+        model = xgb.XGBRegressor(**params, early_stopping_rounds=15)
         model.fit(
             X_train_flat, y_train_multi[:, step],
             eval_set=[(X_val_flat, y_val_multi[:, step])],

@@ -107,10 +107,11 @@ def objective(trial):
         'metric': 'mae',
         'n_estimators': 1000,
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
-        'num_leaves': trial.suggest_int('num_leaves', 15, 127),
-        'max_depth': trial.suggest_int('max_depth', -1, 12),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
+        'max_depth': trial.suggest_int('max_depth', 3, 8),
         'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
         'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+        'subsample_freq': 1,
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 1e-4, 10.0, log=True),
         'reg_lambda': trial.suggest_float('reg_lambda', 1e-4, 10.0, log=True),
@@ -126,7 +127,7 @@ def objective(trial):
             X_train_flat, y_train_multi[:, step],
             eval_set=[(X_val_flat, y_val_multi[:, step])],
             eval_metric='mae',
-            callbacks=[lgb.early_stopping(30, verbose=False)],
+            callbacks=[lgb.early_stopping(15, verbose=False)],
         )
         y_pred = model.predict(X_val_flat, num_iteration=model.best_iteration_)
         mae = mean_absolute_error(y_val_multi[:, step], y_pred)
