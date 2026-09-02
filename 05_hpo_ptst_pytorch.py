@@ -234,8 +234,10 @@ class PatchTSTModel(nn.Module):
 
         enc_out = self.encoder(x_drop)
         ch_out = self.head(enc_out, batch_size)      # [batch, horizon, num_features]
+        # Paper-faithful RevIN: denormalize forecast back to data scale
+        ch_out = self.revin(ch_out, mode='denorm')
         # Paper-faithful channel independence: every channel forecasts its own future,
-        # so the model output is ONLY the target channel's forecast (normalized domain).
+        # so the model output is ONLY the target channel's forecast.
         out = ch_out[:, :, TARGET_CH_IDX]            # [batch, horizon]
         return out
 
