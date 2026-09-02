@@ -26,6 +26,8 @@
 !.agents/**
 !skills/
 !skills/**
+!docs/
+!docs/**
 
 # ไม่เอาโมเดล 04 (TFT - Probabilistic)
 04_*
