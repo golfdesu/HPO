@@ -24,21 +24,29 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
+# Reproducibility
+import random
+SEED = 42
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    if 'torch' in sys.modules:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+set_seed(SEED)
+
+
 # ---------------------------------------------------------
 # 1. Univariate Data Loading & Preprocessing
 # ---------------------------------------------------------
-data_path = 'acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready2.csv'
-
+data_path = '../data_cleaned/acn_caltech_ready2.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
@@ -111,7 +119,7 @@ if __name__ == '__main__':
     print("=" * 65)
     print("🚀 SARIMA Seasonal Order Optuna HPO (s=48)")
     print("=" * 65)
-    print("Starting Optuna Study (20 Trials)...\n")
+    print("Starting Optuna Study (50 trials)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
@@ -120,7 +128,7 @@ if __name__ == '__main__':
         study_name="12_hpo_sarima"
     )
 
-    study.optimize(objective, n_trials=20)
+    study.optimize(objective, n_trials=50)
 
     print("\n" + "=" * 65)
     print("🏆 BEST HYPERPARAMETERS FOUND:")

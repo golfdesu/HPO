@@ -23,6 +23,25 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
+# Reproducibility
+import random
+SEED = 42
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    if 'torch' in sys.modules:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+set_seed(SEED)
+
+
 # CPU Multithreading Speed Optimization
 num_cpus = os.cpu_count() or 4
 torch.set_num_threads(min(6, num_cpus))
@@ -59,18 +78,7 @@ if os.path.exists(vcvars_path):
         pass
 
 # Data Loading & Preprocessing
-data_path = 'acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready2.csv'
-
+data_path = '../data_cleaned/acn_caltech_ready2.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
@@ -349,9 +357,9 @@ def objective(trial):
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    # Extended FULL Search: 20 Epochs with Early Stopping Patience = 5
-    epochs = 20
-    patience = 5
+    # Extended FULL Search: 20 Epochs with Early Stopping patience = 6
+    epochs = 30
+    patience = 6
     patience_counter = 0
     best_val_loss = float('inf')
 
@@ -393,7 +401,7 @@ if __name__ == '__main__':
     print("=" * 65)
     print("🚀 Autoformer PyTorch FULL HPO (NeurIPS 2021)")
     print("=" * 65)
-    print("Starting FULL Optuna Study (30 Trials on 100% Data)...\n")
+    print("Starting FULL Optuna Study (50 trials on 100% Data)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
@@ -403,7 +411,7 @@ if __name__ == '__main__':
         study_name="03_hpo_afm_pytorch_full"
     )
 
-    study.optimize(objective, n_trials=30)
+    study.optimize(objective, n_trials=50)
 
     print("\n" + "=" * 65)
     print("🏆 BEST HYPERPARAMETERS FOUND (FULL SEARCH):")

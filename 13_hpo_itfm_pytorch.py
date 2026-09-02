@@ -23,6 +23,25 @@ except ImportError:
 
 warnings.filterwarnings('ignore')
 
+# Reproducibility
+import random
+SEED = 42
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    if 'torch' in sys.modules:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+set_seed(SEED)
+
+
 num_cpus = os.cpu_count() or 4
 torch.set_num_threads(min(6, num_cpus))
 try:
@@ -59,18 +78,7 @@ if os.path.exists(vcvars_path):
 # ---------------------------------------------------------
 # 1. Data Loading & Preprocessing
 # ---------------------------------------------------------
-data_path = 'acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = '../preprocess/acn_caltech_ready2.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready.csv'
-if not os.path.exists(data_path):
-    data_path = r'C:\Users\chaya\Documents\Program\Practice\preprocess\acn_caltech_ready2.csv'
-
+data_path = '../data_cleaned/acn_caltech_ready2.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
@@ -105,25 +113,25 @@ X_train_scaled = np.concatenate([X_train_scaled, y_train_scaled.reshape(-1, 1)],
 X_val_scaled   = np.concatenate([X_val_scaled,   y_val_scaled.reshape(-1, 1)], axis=1)
 print(f"Target variate appended at index {TARGET_CH_IDX} (total variates: {X_train_scaled.shape[1]})")
 
-# Subsample 30% for fast HPO search
-sub_len = int(len(X_train_scaled) * 0.3)
-X_train_hpo = X_train_scaled[-sub_len:]
-y_train_hpo = y_train_scaled[-sub_len:]
-
 LOOKBACK = 96
 HORIZON  = 48
 
-def create_dataloader(X_data, y_data, lookback, horizon, batch_size=64, shuffle=True):
+def create_windowed_tensors(X_data, y_data, lookback, horizon):
     X_seq, y_seq = [], []
     for i in range(len(X_data) - lookback - horizon + 1):
         X_seq.append(X_data[i : i + lookback])
         y_seq.append(y_data[i + lookback : i + lookback + horizon])
     X_t = torch.tensor(np.array(X_seq, dtype=np.float32))
     y_t = torch.tensor(np.array(y_seq, dtype=np.float32))
-    ds  = TensorDataset(X_t, y_t)
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=shuffle)
+    return X_t, y_t
 
-print(f"Dataset Loaded! HPO Subsampled Train Rows: {len(X_train_hpo)}, Features: {len(cols)}")
+print("Pre-building sequence tensors on 100% Data...")
+X_train_t, y_train_t = create_windowed_tensors(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON)
+X_val_t, y_val_t     = create_windowed_tensors(X_val_scaled, y_val_scaled, LOOKBACK, HORIZON)
+
+train_dataset = TensorDataset(X_train_t, y_train_t)
+val_dataset   = TensorDataset(X_val_t, y_val_t)
+print(f"Dataset Loaded! 100% Train Sequences: {len(train_dataset)}, Val: {len(val_dataset)}, Features: {len(cols)}")
 
 # ---------------------------------------------------------
 # 2. iTransformer Architecture
@@ -171,8 +179,8 @@ def objective(trial):
     weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-2, log=True)
     batch_size   = trial.suggest_categorical('batch_size', [64, 128, 256])
 
-    train_loader = create_dataloader(X_train_hpo, y_train_hpo, LOOKBACK, HORIZON, batch_size, shuffle=True)
-    val_loader   = create_dataloader(X_val_scaled, y_val_scaled, LOOKBACK, HORIZON, batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=(device.type == 'cuda'))
+    val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=(device.type == 'cuda'))
 
     model = iTransformerModel(
         lookback=LOOKBACK, num_features=len(cols), horizon=HORIZON,
@@ -183,8 +191,8 @@ def objective(trial):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
 
-    epochs           = 40
-    patience         = 6
+    epochs = 30
+    patience = 6
     patience_counter = 0
     best_val_loss    = float('inf')
 
@@ -229,7 +237,7 @@ if __name__ == '__main__':
     print("=" * 65)
     print("🚀 iTransformer PyTorch FULL HPO (ICLR 2024)")
     print("=" * 65)
-    print("Starting FULL Optuna Study (30 Trials on 100% Data)...\n")
+    print("Starting FULL Optuna Study (50 trials on 100% Data)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
@@ -239,7 +247,7 @@ if __name__ == '__main__':
         study_name="13_hpo_itfm_pytorch_full"
     )
 
-    study.optimize(objective, n_trials=30)
+    study.optimize(objective, n_trials=50)
 
     print("\n" + "=" * 65)
     print("🏆 BEST HYPERPARAMETERS FOUND (FULL SEARCH):")

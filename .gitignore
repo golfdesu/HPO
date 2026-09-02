@@ -1,19 +1,39 @@
-# 1. Ignore ทุกอย่างในโปรเจกต์
+﻿# 1. Ignore ทุกอย่างในโปรเจกต์
 *
 
-# 2. ยกเว้น (เอาเข้า Git) เฉพาะโมเดล 08 ถึง 15 ที่เป็นนามสกุล .py
-!08_*.py
-!09_*.py
-!10_*.py
-!11_*.py
-!12_*.py
-!13_*.py
-!14_*.py
-!15_*.py
+# 2. ยกเว้น (เอาเข้า Git) เฉพาะโมเดล 01 ถึง 15 ที่ต้องการ
+!01_hpo_tfm_pytorch.py
+!02_hpo_ifm_pytorch.py
+!03_hpo_afm_pytorch.py
+!05_hpo_ptst_pytorch.py
+!06_hpo_dec_pytorch.py
+!07_hpo_encdec_pytorch.py
+!08_hpo_lstm_pytorch.py
+!09_hpo_dlinear_pytorch.py
+!10_hpo_xgboost.py
+!11_hpo_lightgbm.py
+!12_hpo_sarima.py
+!13_hpo_itfm_pytorch.py
+!14_hpo_timesnet_pytorch.py
+!15_hpo_nlinear_pytorch.py
 
-# 3. ไม่เอาไฟล์ที่มีคำว่า fix
+# เอา .gitignore, AGENTS.md และ .agents เข้า Git
+!.gitignore
+!AGENTS.md
+!.agents/
+!.agents/**
+!skills/
+!skills/**
+
+# ไม่เอาโมเดล 04 (TFT - Probabilistic)
+04_*
+*04_*
+
+# 3. ไม่เอาไฟล์ fix และ json เก่า
 *fix*
 *fix.*
+*_best_params.json
+*.json
 
 # 4. Python cache
 __pycache__/
