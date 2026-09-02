@@ -35,6 +35,10 @@ Welcome to the **EV Charging Load Forecasting & HPO Engine** workspace. This rep
 | `14_hpo_timesnet_pytorch.py` | **TimesNet** | 2D-FFT Top-k Periods + 2D Inception Block + Adaptive Softmax | Wu et al. (ICLR 2023) |
 | 15_hpo_nlinear_pytorch.py | **NLinear** | Last-value Normalization: $\hat{Y} = W(X - X_{-1}) + X_{-1}$ | Zeng et al. (AAAI 2023) |
 | 16_hpo_gru_pytorch.py | **GRU Baseline** | Gated Recurrent Unit (Reset/Update Gates) + Multi-Feature Proj | Cho et al. (EMNLP 2014); Chung et al. (2014) |
+| 17_hpo_smamba_pytorch.py | **S-Mamba** | Bidirectional Selective State Space Model | Wang et al. (2024); Gu & Dao (2023) |
+| 18_hpo_powermamba_pytorch.py | **PowerMamba** | Series Decomposition + Dual-Path Selective SSM | Menati et al. (2024) |
+| 19_hpo_timemachine_pytorch.py | **TimeMachine** | Quadruple Cross-Time & Cross-Channel Mamba for MTS | Ahamed & Cheng (2024) |
+| 20_hpo_s4d_pytorch.py | **S4D Baseline** | Diagonal State Space Kernel + FFT Cauchy Convolution | Gu et al. (ICLR 2022) |
 
 ---
 

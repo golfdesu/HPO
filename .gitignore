@@ -17,6 +17,10 @@
 !14_hpo_timesnet_pytorch.py
 !15_hpo_nlinear_pytorch.py
 !16_hpo_gru_pytorch.py
+!17_hpo_smamba_pytorch.py
+!18_hpo_powermamba_pytorch.py
+!19_hpo_timemachine_pytorch.py
+!20_hpo_s4d_pytorch.py
 
 # เอาไฟล์ config, docs และ agents เข้า Git
 !.gitignore
