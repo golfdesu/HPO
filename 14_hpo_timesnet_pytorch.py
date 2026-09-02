@@ -59,7 +59,6 @@ if __name__ == '__main__':
         print(f"CPU Multithreading Optimized with {num_cpus} threads")
 
 if device.type == 'cuda':
-    torch.cuda.set_per_process_memory_fraction(0.5, device=0)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
@@ -257,15 +256,12 @@ def objective(trial):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            time.sleep(0.005)
-
         model.eval()
         val_loss = 0.0
         with torch.inference_mode():
             for bX, by in val_loader:
                 bX, by = bX.to(device, non_blocking=True), by.to(device, non_blocking=True)
                 val_loss += criterion(model(bX), by).item() * bX.size(0)
-                time.sleep(0.002)
         val_loss /= len(val_loader.dataset)
 
         if val_loss < best_val_loss:

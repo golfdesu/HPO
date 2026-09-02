@@ -60,11 +60,9 @@ if __name__ == '__main__':
         print(f"CPU Multithreading Optimized with {num_cpus} threads")
 
 if device.type == 'cuda':
-    torch.cuda.set_per_process_memory_fraction(0.5, device=0)  # VRAM Limit 50%
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
-
 
 # Data Loading & Preprocessing
 data_path = '../data_cleaned/acn_caltech_ready2.csv'
@@ -294,7 +292,6 @@ def objective(trial):
             loss = criterion(model(b_X), b_y)
             loss.backward()
             optimizer.step()
-            time.sleep(0.005)  # Rest GPU per batch to keep temperature cool
 
         model.eval()
         val_loss = 0.0
@@ -302,7 +299,6 @@ def objective(trial):
             for b_X, b_y in val_loader:
                 b_X, b_y = b_X.to(device, non_blocking=True), b_y.to(device, non_blocking=True)
                 loss = criterion(model(b_X), b_y)
-                time.sleep(0.002)
                 val_loss += loss.item() * b_X.size(0)
         val_loss /= len(val_loader.dataset)
 

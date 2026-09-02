@@ -60,13 +60,10 @@ if __name__ == '__main__':
         print(f"CPU Multithreading Optimized with {num_cpus} threads")
 
 if device.type == 'cuda':
-    torch.cuda.set_per_process_memory_fraction(0.5, device=0)  # VRAM Limit 50%
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
 
-
-# ---------------------------------------------------------
 # 1. Univariate Data Loading & Preprocessing
 # ---------------------------------------------------------
 data_path = '../data_cleaned/acn_caltech_ready2.csv'
@@ -168,8 +165,6 @@ def objective(trial):
             loss = criterion(model(b_X), b_y)
             loss.backward()
             optimizer.step()
-            time.sleep(0.002)
-
         model.eval()
         val_loss = 0.0
         with torch.inference_mode():

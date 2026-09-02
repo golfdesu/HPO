@@ -55,14 +55,14 @@ if __name__ == '__main__':
     print("Using Device:", device)
     if device.type == 'cuda':
         print("GPU Model:", torch.cuda.get_device_name(0))
-        torch.cuda.set_per_process_memory_fraction(0.5, device=0)
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
-        torch.backends.cudnn.benchmark = True
     else:
         print(f"CPU Multithreading Optimized with {num_cpus} threads")
 
-# ---------------------------------------------------------
+if device.type == 'cuda':
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True
+
 # 1. Univariate Data Loading & Preprocessing
 # ---------------------------------------------------------
 data_path = '../data_cleaned/acn_caltech_ready2.csv'
