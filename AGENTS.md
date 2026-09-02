@@ -1,4 +1,4 @@
-﻿# AGENTS.md — Hyperparameter Optimization (HPO) Guidelines
+# AGENTS.md — Hyperparameter Optimization (HPO) Guidelines
 
 Welcome to the **EV Charging Load Forecasting & HPO Engine** workspace. This repository houses hyperparameter optimization scripts for deep learning, linear, and tree-based forecasting architectures applied to EV station aggregate load data (`acn_caltech_ready2.csv`).
 
@@ -49,3 +49,13 @@ Welcome to the **EV Charging Load Forecasting & HPO Engine** workspace. This rep
 - **Trial Epochs**: 30 Epochs per trial (`epochs=30`).
 - **Early Stopping**: `patience=10` on Validation Loss.
 - **Output Artifact**: Save best parameters to `<file_id>_best_params.json`.
+
+---
+
+## 4. WikiSkill Knowledge & Validation Protocol (Google Research arXiv:2608.27454)
+
+All agents operating in this workspace must consult and adhere to the persistent institutional memory stored in `.wikiskill/`:
+- **Erawan HPC Rules**: Consult `.wikiskill/wiki/erawan_hpc_playbook.md`. Never add `torch.compile` (missing `Python.h` on compute nodes) or configure LightGBM with CUDA.
+- **Model Pitfalls**: Consult `.wikiskill/wiki/model_pitfalls.md`. Strictly limit Mamba layers to `[1, 2]`.
+- **Preflight Verification**: Run `python .wikiskill/skills/scripts/preflight_check.py` before launching training.
+- **Gating Validation**: Run `python .wikiskill/skills/scripts/validate_gating.py` after any code modification.

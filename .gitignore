@@ -1,4 +1,4 @@
-﻿# 1. Ignore ทุกอย่างในโปรเจกต์
+# 1. Ignore ทุกอย่างในโปรเจกต์
 *
 
 # 2. ยกเว้น (เอาเข้า Git) เฉพาะโมเดล 01 ถึง 15 ที่ต้องการ
@@ -29,6 +29,8 @@
 !AGENTS.md
 !.agents/
 !.agents/**
+!.wikiskill/
+!.wikiskill/**
 !skills/
 !skills/**
 !docs/
