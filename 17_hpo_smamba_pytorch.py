@@ -257,6 +257,12 @@ def objective(trial):
         dropout_rate=dropout_rate
     ).to(device)
 
+    if device.type == 'cuda' and hasattr(torch, 'compile'):
+        try:
+            model = torch.compile(model)
+        except Exception:
+            pass
+
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
 

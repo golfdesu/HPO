@@ -156,7 +156,7 @@ class TimesBlock(nn.Module):
         # softmax of its FFT amplitude, not a flat mean
         period_list = []
         weights_list = []
-        for idx in top_freq_idx.detach().cpu().numpy():
+        for idx in top_freq_idx.tolist():
             p = T // max(int(idx), 1)
             if p >= 2:
                 period_list.append(p)

@@ -126,7 +126,7 @@ def objective(trial):
     }
 
     step_maes = []
-    for step in EVAL_STEPS:
+    for step_idx, step in enumerate(EVAL_STEPS):
         model = xgb.XGBRegressor(**params, early_stopping_rounds=15)
         model.fit(
             X_train_flat, y_train_multi[:, step],
@@ -137,6 +137,11 @@ def objective(trial):
         mae = mean_absolute_error(y_val_multi[:, step], y_pred)
         step_maes.append(mae)
 
+        # Optuna Intermediate Pruning per step
+        trial.report(float(np.mean(step_maes)), step_idx)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+
     val_loss = float(np.mean(step_maes))
     return val_loss
 
@@ -146,12 +151,17 @@ def objective(trial):
 if __name__ == '__main__':
     print("=" * 65)
     print("🚀 XGBoost Direct Multi-Output Optuna HPO")
+    if xgb_device == 'cuda':
+        print("⚡ Accelerated with NVIDIA GPU (CUDA)")
+    else:
+        print("⚙️  Running in CPU Mode")
     print("=" * 65)
-    print("Starting Optuna Study (50 trials on 100% Data)...\n")
+    print("Starting Optuna Study (50 trials with MedianPruner)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=1),
         direction="minimize",
         study_name="10_hpo_xgboost"
     )

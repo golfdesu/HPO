@@ -98,6 +98,16 @@ print(f"Dataset Loaded! Train Flat Shape: {X_train_flat.shape}, Val Flat Shape: 
 # Key representative steps across 24h horizon for fast, reliable HPO evaluation
 EVAL_STEPS = [0, 5, 11, 23, 35, 47]  # 30m, 3h, 6h, 12h, 18h, 24h
 
+# Check GPU availability (A100 / H100 / CUDA)
+has_cuda = False
+try:
+    import torch
+    has_cuda = torch.cuda.is_available()
+except Exception:
+    has_cuda = (os.system("nvidia-smi >nul 2>&1") == 0)
+
+lgb_device = 'cuda' if has_cuda else 'cpu'
+
 # ---------------------------------------------------------
 # 2. Optuna Objective Function
 # ---------------------------------------------------------
@@ -115,23 +125,44 @@ def objective(trial):
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 1e-4, 10.0, log=True),
         'reg_lambda': trial.suggest_float('reg_lambda', 1e-4, 10.0, log=True),
+        'max_bin': 128,
+        'device': lgb_device,
         'random_state': 42,
-        'n_jobs': -1,
+        'n_jobs': 6 if lgb_device == 'cpu' else -1,
         'verbose': -1,
     }
 
     step_maes = []
-    for step in EVAL_STEPS:
-        model = lgb.LGBMRegressor(**params)
-        model.fit(
-            X_train_flat, y_train_multi[:, step],
-            eval_set=[(X_val_flat, y_val_multi[:, step])],
-            eval_metric='mae',
-            callbacks=[lgb.early_stopping(15, verbose=False)],
-        )
+    for step_idx, step in enumerate(EVAL_STEPS):
+        try:
+            model = lgb.LGBMRegressor(**params)
+            model.fit(
+                X_train_flat, y_train_multi[:, step],
+                eval_set=[(X_val_flat, y_val_multi[:, step])],
+                eval_metric='mae',
+                callbacks=[lgb.early_stopping(15, verbose=False)],
+            )
+        except Exception:
+            # Fallback to CPU if CUDA build not available in environment
+            if params.get('device') == 'cuda':
+                params['device'] = 'cpu'
+                params['n_jobs'] = 6
+                model = lgb.LGBMRegressor(**params)
+                model.fit(
+                    X_train_flat, y_train_multi[:, step],
+                    eval_set=[(X_val_flat, y_val_multi[:, step])],
+                    eval_metric='mae',
+                    callbacks=[lgb.early_stopping(15, verbose=False)],
+                )
+
         y_pred = model.predict(X_val_flat, num_iteration=model.best_iteration_)
         mae = mean_absolute_error(y_val_multi[:, step], y_pred)
         step_maes.append(mae)
+
+        # Optuna Intermediate Pruning per step
+        trial.report(float(np.mean(step_maes)), step_idx)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
 
     val_loss = float(np.mean(step_maes))
     return val_loss
@@ -142,12 +173,17 @@ def objective(trial):
 if __name__ == '__main__':
     print("=" * 65)
     print("🚀 LightGBM Direct Multi-Output Optuna HPO")
+    if has_cuda:
+        print("⚡ Accelerated with NVIDIA GPU (A100/H100/CUDA)")
+    else:
+        print("⚙️  Running in CPU Mode (Optimized Threads & max_bin=128)")
     print("=" * 65)
-    print("Starting Optuna Study (50 trials on 100% Data)...\n")
+    print("Starting Optuna Study (50 trials with MedianPruner)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=1),
         direction="minimize",
         study_name="11_hpo_lightgbm"
     )
