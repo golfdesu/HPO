@@ -39,8 +39,8 @@ Welcome to the **EV Charging Load Forecasting & HPO Engine** workspace. This rep
 
 ## 3. HPO Execution Protocol
 
-- **Study Setup**: `optuna.create_study(direction="minimize", sampler=TPESampler(seed=42), pruner=MedianPruner(n_warmup_steps=6))`
+- **Study Setup**: `optuna.create_study(direction="minimize", sampler=TPESampler(seed=42), pruner=MedianPruner(n_startup_trials=10, n_warmup_steps=10))`
 - **Budget**: 50 Trials per model (`n_trials=50`).
 - **Trial Epochs**: 30 Epochs per trial (`epochs=30`).
-- **Early Stopping**: `patience=6` on Validation Loss.
+- **Early Stopping**: `patience=10` on Validation Loss.
 - **Output Artifact**: Save best parameters to `<file_id>_best_params.json`.

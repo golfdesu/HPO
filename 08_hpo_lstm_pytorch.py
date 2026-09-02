@@ -201,7 +201,7 @@ def objective(trial):
     criterion = nn.MSELoss()
 
     epochs = 30
-    patience = 6
+    patience = 10
     patience_counter = 0
     best_val_loss = float('inf')
 
@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(seed=42),
-        pruner=optuna.pruners.MedianPruner(n_warmup_steps=6),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=10),
         direction="minimize",
         study_name="08_hpo_lstm_pytorch_full"
     )
