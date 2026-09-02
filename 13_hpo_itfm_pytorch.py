@@ -64,18 +64,6 @@ if device.type == 'cuda':
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
 
-vcvars_path = r"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-if os.path.exists(vcvars_path):
-    try:
-        msvc_env = subprocess.check_output(f'cmd.exe /c ""{vcvars_path}" && set"', text=True)
-        for line in msvc_env.splitlines():
-            if "=" in line:
-                k, v = line.split("=", 1)
-                os.environ[k] = v
-    except Exception:
-        pass
-
-# ---------------------------------------------------------
 # 1. Data Loading & Preprocessing
 # ---------------------------------------------------------
 data_path = '../data_cleaned/acn_caltech_ready2.csv'

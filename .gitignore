@@ -17,9 +17,10 @@
 !14_hpo_timesnet_pytorch.py
 !15_hpo_nlinear_pytorch.py
 
-# เอา .gitignore, requirements.txt, AGENTS.md และ .agents เข้า Git
+# เอาไฟล์ config, docs และ agents เข้า Git
 !.gitignore
 !requirements.txt
+!README.md
 !AGENTS.md
 !.agents/
 !.agents/**

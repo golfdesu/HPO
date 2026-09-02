@@ -1,4 +1,4 @@
-absl-py==2.5.0
+﻿absl-py==2.5.0
 alembic==1.19.1
 anyio==4.14.2
 argon2-cffi==25.1.0
@@ -104,7 +104,6 @@ Pygments==2.20.0
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 python-json-logger==4.1.0
-pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.1.0
 referencing==0.37.0
