@@ -160,7 +160,7 @@ class AutoCorrelation(nn.Module):
     def time_delay_agg(self, values, corr):
         batch, head, length, channel = values.shape
         top_k = max(1, int(self.factor * np.log(length)))
-        mean_value = torch.mean(torch.mean(corr, dim=1), dim=1)
+        mean_value = torch.mean(torch.mean(corr, dim=1), dim=-1)  # [batch, length]
         weights, index = torch.topk(mean_value, top_k, dim=-1)
         tmp_corr = torch.softmax(weights, dim=-1)
         
