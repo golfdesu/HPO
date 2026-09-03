@@ -6,7 +6,7 @@
 #SBATCH --job-name=hpo_ssm
 #SBATCH --output=logs/hpo_%a_%A.out
 #SBATCH --error=logs/hpo_%a_%A.err
-#SBATCH --partition=gpu
+#SBATCH --partition=gpu-h100,mixed
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
