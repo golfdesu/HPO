@@ -21,9 +21,12 @@
 !18_hpo_powermamba_pytorch.py
 !19_hpo_timemachine_pytorch.py
 !20_hpo_s4d_pytorch.py
+!run_hpo_17_20.sbatch
+!run_hpo_array.sbatch
 
 # เอาไฟล์ config, docs และ agents เข้า Git
 !.gitignore
+!.gitattributes
 !requirements.txt
 !README.md
 !AGENTS.md
