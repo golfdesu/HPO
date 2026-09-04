@@ -13,6 +13,7 @@ Constructed under the principles of **Google Research: WikiSkill** (*arXiv:2608.
 | [`model_pitfalls.md`](model_pitfalls.md) | **Model Architecture Pitfalls** | Bugs, overparameterization traps, and layer restrictions |
 | [`optimization_guide.md`](optimization_guide.md) | **High-Throughput Playbook** | TF32, pinned memory, streams, and pre-vectorization |
 | [`paper_invariants.md`](paper_invariants.md) | **Scientific Ground Truth** | Target variable, chronological split, seeds, and lookback |
+| [`production_hyperparameters.md`](production_hyperparameters.md) | **Production Hyperparameters** | Validated HPO parameters, parsimony rationale, and benchmark hierarchy |
 
 ---
 

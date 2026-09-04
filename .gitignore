@@ -21,8 +21,6 @@
 !18_hpo_powermamba_pytorch.py
 !19_hpo_timemachine_pytorch.py
 !20_hpo_s4d_pytorch.py
-!run_hpo_17_20.sbatch
-!run_hpo_array.sbatch
 
 # เอาไฟล์ config, docs และ agents เข้า Git
 !.gitignore
@@ -30,6 +28,7 @@
 !requirements.txt
 !README.md
 !AGENTS.md
+!selected_production_params.json
 !.agents/
 !.agents/**
 !.wikiskill/
@@ -48,6 +47,8 @@
 *fix.*
 *_best_params.json
 *.json
+!selected_production_params.json
+*.sbatch
 
 # 4. Python cache
 __pycache__/
