@@ -1,29 +1,35 @@
-# 1. Ignore ทุกอย่างในโปรเจกต์
+# 1. Ignore all by default
 *
 
-# 2. ยกเว้น (เอาเข้า Git) เฉพาะโมเดล 01 ถึง 15 ที่ต้องการ
+# 2. Explicitly track all benchmark models (00 to 24)
 !00_hpo_tfm_custom_pytorch.py
 !01_hpo_tfm_pytorch.py
-!02_hpo_ifm_pytorch.py
-!03_hpo_afm_pytorch.py
-!05_hpo_ptst_pytorch.py
-!06_hpo_dec_pytorch.py
-!07_hpo_encdec_pytorch.py
-!08_hpo_lstm_pytorch.py
-!09_hpo_dlinear_pytorch.py
-!10_hpo_xgboost.py
-!11_hpo_lightgbm.py
-!12_hpo_sarima.py
-!13_hpo_itfm_pytorch.py
-!14_hpo_timesnet_pytorch.py
-!15_hpo_nlinear_pytorch.py
-!16_hpo_gru_pytorch.py
-!17_hpo_smamba_pytorch.py
-!18_hpo_powermamba_pytorch.py
-!19_hpo_timemachine_pytorch.py
-!20_hpo_s4d_pytorch.py
+!02_hpo_dec_pytorch.py
+!03_hpo_encdec_pytorch.py
+!04_hpo_ifm_pytorch.py
+!05_hpo_afm_pytorch.py
+!06_hpo_ptst_pytorch.py
+!07_hpo_itfm_pytorch.py
+!08_hpo_timesnet_pytorch.py
+!09_hpo_lstm_pytorch.py
+!10_hpo_gru_pytorch.py
+!11_hpo_dlinear_pytorch.py
+!12_hpo_nlinear_pytorch.py
+!13_hpo_smamba_pytorch.py
+!14_hpo_powermamba_pytorch.py
+!15_hpo_timemachine_pytorch.py
+!16_hpo_s4d_pytorch.py
+!17_hpo_xgboost.py
+!18_hpo_lightgbm.py
+!19_hpo_sarima.py
+!20_hpo_mft_pytorch.py
+!21_hpo_cnn_lstm_tfm_pytorch.py
+!22_hpo_fedformer_pytorch.py
+!23_hpo_tcn_pytorch.py
+!24_hpo_nhits_pytorch.py
+!*_best_params.json
 
-# เอาไฟล์ config, docs และ agents เข้า Git
+# 3. Explicitly track metadata, configs, docs
 !.gitignore
 !.gitattributes
 !requirements.txt
@@ -38,21 +44,12 @@
 !skills/**
 !docs/
 !docs/**
+!archive/
+!archive/**
 
-# ไม่เอาโมเดล 04 (TFT - Probabilistic)
-04_*
-*04_*
-
-# 3. ไม่เอาไฟล์ fix และ json เก่า
+# 4. Exclude temp and log files
 *fix*
 *fix.*
-*_best_params.json
-*.json
-!selected_production_params.json
-*.sbatch
-!run_hpo_00_custom.sbatch
-
-# 4. Python cache
+*.log
 __pycache__/
-**/__pycache__/**
-*.py[cod]
+*.pyc

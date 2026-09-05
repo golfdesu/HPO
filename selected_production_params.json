@@ -191,8 +191,8 @@
                 }
             ]
         },
-        "02_hpo_ifm_pytorch": {
-            "model_name": "02_hpo_ifm_pytorch",
+        "04_hpo_ifm_pytorch": {
+            "model_name": "04_hpo_ifm_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -378,8 +378,8 @@
                 }
             ]
         },
-        "03_hpo_afm_pytorch": {
-            "model_name": "03_hpo_afm_pytorch",
+        "05_hpo_afm_pytorch": {
+            "model_name": "05_hpo_afm_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -565,8 +565,8 @@
                 }
             ]
         },
-        "05_hpo_ptst_pytorch": {
-            "model_name": "05_hpo_ptst_pytorch",
+        "06_hpo_ptst_pytorch": {
+            "model_name": "06_hpo_ptst_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -776,8 +776,8 @@
                 }
             ]
         },
-        "06_hpo_dec_pytorch": {
-            "model_name": "06_hpo_dec_pytorch",
+        "02_hpo_dec_pytorch": {
+            "model_name": "02_hpo_dec_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -963,8 +963,8 @@
                 }
             ]
         },
-        "07_hpo_encdec_pytorch": {
-            "model_name": "07_hpo_encdec_pytorch",
+        "03_hpo_encdec_pytorch": {
+            "model_name": "03_hpo_encdec_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1150,8 +1150,8 @@
                 }
             ]
         },
-        "08_hpo_lstm_pytorch": {
-            "model_name": "08_hpo_lstm_pytorch",
+        "09_hpo_lstm_pytorch": {
+            "model_name": "09_hpo_lstm_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1325,8 +1325,8 @@
                 }
             ]
         },
-        "09_hpo_dlinear_pytorch": {
-            "model_name": "09_hpo_dlinear_pytorch",
+        "11_hpo_dlinear_pytorch": {
+            "model_name": "11_hpo_dlinear_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1464,8 +1464,8 @@
                 }
             ]
         },
-        "10_hpo_xgboost": {
-            "model_name": "10_hpo_xgboost",
+        "17_hpo_xgboost": {
+            "model_name": "17_hpo_xgboost",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1639,8 +1639,8 @@
                 }
             ]
         },
-        "11_hpo_lightgbm": {
-            "model_name": "11_hpo_lightgbm",
+        "18_hpo_lightgbm": {
+            "model_name": "18_hpo_lightgbm",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1826,8 +1826,8 @@
                 }
             ]
         },
-        "12_hpo_sarima": {
-            "model_name": "12_hpo_sarima",
+        "19_hpo_sarima": {
+            "model_name": "19_hpo_sarima",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -1989,8 +1989,8 @@
                 }
             ]
         },
-        "13_hpo_itfm_pytorch": {
-            "model_name": "13_hpo_itfm_pytorch",
+        "07_hpo_itfm_pytorch": {
+            "model_name": "07_hpo_itfm_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -2176,8 +2176,8 @@
                 }
             ]
         },
-        "14_hpo_timesnet_pytorch": {
-            "model_name": "14_hpo_timesnet_pytorch",
+        "08_hpo_timesnet_pytorch": {
+            "model_name": "08_hpo_timesnet_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -2375,8 +2375,8 @@
                 }
             ]
         },
-        "15_hpo_nlinear_pytorch": {
-            "model_name": "15_hpo_nlinear_pytorch",
+        "12_hpo_nlinear_pytorch": {
+            "model_name": "12_hpo_nlinear_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -2502,8 +2502,8 @@
                 }
             ]
         },
-        "16_hpo_gru_pytorch": {
-            "model_name": "16_hpo_gru_pytorch",
+        "10_hpo_gru_pytorch": {
+            "model_name": "10_hpo_gru_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -2677,8 +2677,8 @@
                 }
             ]
         },
-        "17_hpo_smamba_pytorch": {
-            "model_name": "17_hpo_smamba_pytorch",
+        "13_hpo_smamba_pytorch": {
+            "model_name": "13_hpo_smamba_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -2852,8 +2852,8 @@
                 }
             ]
         },
-        "18_hpo_powermamba_pytorch": {
-            "model_name": "18_hpo_powermamba_pytorch",
+        "14_hpo_powermamba_pytorch": {
+            "model_name": "14_hpo_powermamba_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -3039,8 +3039,8 @@
                 }
             ]
         },
-        "19_hpo_timemachine_pytorch": {
-            "model_name": "19_hpo_timemachine_pytorch",
+        "15_hpo_timemachine_pytorch": {
+            "model_name": "15_hpo_timemachine_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
@@ -3214,8 +3214,8 @@
                 }
             ]
         },
-        "20_hpo_s4d_pytorch": {
-            "model_name": "20_hpo_s4d_pytorch",
+        "16_hpo_s4d_pytorch": {
+            "model_name": "16_hpo_s4d_pytorch",
             "search_mode": "FULL_100_PERCENT",
             "selected_for_production": {
                 "status": "SELECTED_FOR_PRODUCTION",
