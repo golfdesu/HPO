@@ -8,7 +8,7 @@
 #SBATCH --job-name=hpo_00_tfm
 #SBATCH --output=logs/slurm_%x_%j.out
 #SBATCH --error=logs/slurm_%x_%j.err
-#SBATCH --partition=gpu-h100
+#SBATCH --partition=mixed
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
