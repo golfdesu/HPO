@@ -162,7 +162,9 @@ def run_audit():
     for py_file in py_files:
         basename = os.path.basename(py_file)
         prefix = basename[:-3]
-        json_file = os.path.join(WORKSPACE_DIR, f"{prefix}_best_params.json")
+        json_file = os.path.join(WORKSPACE_DIR, "best_params", f"{prefix}_best_params.json")
+        if not os.path.exists(json_file):
+            json_file = os.path.join(WORKSPACE_DIR, f"{prefix}_best_params.json")
 
         code_status, code_issues = audit_code_file(py_file)
         json_status, best_loss, best_params, json_issues = validate_json_params(prefix, py_file, json_file)

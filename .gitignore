@@ -37,6 +37,8 @@
 !AGENTS.md
 !configs/
 !configs/**
+!best_params/
+!best_params/**
 !*.sbatch
 !selected_production_params.json
 !.agents/
