@@ -1,0 +1,406 @@
+{
+    "last_updated": "2026-09-05T21:00:21.184383",
+    "total_models": 25,
+    "models_summary": {
+        "code_passed": 25,
+        "json_validated": 20,
+        "json_missing": 5,
+        "json_incompatible": 0
+    },
+    "models": {
+        "00_hpo_tfm_custom_pytorch": {
+            "code_file": "00_hpo_tfm_custom_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0030057833319785915,
+            "best_params": {
+                "attn_orthogonal_reg": 4.57266747504827e-06
+            },
+            "json_issues": []
+        },
+        "01_hpo_tfm_pytorch": {
+            "code_file": "01_hpo_tfm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003054779946033621,
+            "best_params": {
+                "d_model": 128,
+                "num_heads": 4,
+                "d_ff_mult": 2,
+                "num_layers": 1,
+                "dropout_rate": 0.05,
+                "learning_rate": 0.0003395279033423457,
+                "weight_decay": 6.29245960617315e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "02_hpo_dec_pytorch": {
+            "code_file": "02_hpo_dec_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0030797800850146657,
+            "best_params": {
+                "d_model": 64,
+                "num_heads": 2,
+                "d_ff_mult": 4,
+                "num_layers": 1,
+                "dropout_rate": 0.05,
+                "learning_rate": 0.00048429472294432346,
+                "weight_decay": 7.032818028480062e-06,
+                "batch_size": 256
+            },
+            "json_issues": []
+        },
+        "03_hpo_encdec_pytorch": {
+            "code_file": "03_hpo_encdec_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0031202902616921245,
+            "best_params": {
+                "d_model": 128,
+                "num_heads": 4,
+                "d_ff_mult": 4,
+                "num_layers": 1,
+                "dropout_rate": 0.1,
+                "learning_rate": 0.0002509898258872657,
+                "weight_decay": 8.075382022710797e-05,
+                "batch_size": 64
+            },
+            "json_issues": []
+        },
+        "04_hpo_ifm_pytorch": {
+            "code_file": "04_hpo_ifm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0033779385573645257,
+            "best_params": {
+                "d_model": 32,
+                "num_heads": 4,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.05,
+                "learning_rate": 0.00017190785731708002,
+                "weight_decay": 1.494878419588505e-06,
+                "batch_size": 64
+            },
+            "json_issues": []
+        },
+        "05_hpo_afm_pytorch": {
+            "code_file": "05_hpo_afm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0036144184305662618,
+            "best_params": {
+                "d_model": 128,
+                "num_heads": 2,
+                "d_ff_mult": 2,
+                "num_layers": 2,
+                "dropout_rate": 0.05,
+                "learning_rate": 0.0004041602664861309,
+                "weight_decay": 1.0654865730022553e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "06_hpo_ptst_pytorch": {
+            "code_file": "06_hpo_ptst_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.005555278574049586,
+            "best_params": {
+                "d_model": 128,
+                "num_heads": 4,
+                "d_ff_mult": 4,
+                "num_layers": 2,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.000182537819460785,
+                "weight_decay": 1.1711785677498206e-06,
+                "batch_size": 128,
+                "patch_len": 8,
+                "stride": 4
+            },
+            "json_issues": []
+        },
+        "07_hpo_itfm_pytorch": {
+            "code_file": "07_hpo_itfm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0030287263015329764,
+            "best_params": {
+                "d_model": 32,
+                "num_heads": 4,
+                "d_ff_mult": 4,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.0017708585791417803,
+                "weight_decay": 1.7209491444104483e-06,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "08_hpo_timesnet_pytorch": {
+            "code_file": "08_hpo_timesnet_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003249660238839714,
+            "best_params": {
+                "d_model": 32,
+                "d_ff_mult": 4,
+                "num_layers": 3,
+                "top_k": 4,
+                "num_kernels": 4,
+                "dropout_rate": 0.25,
+                "learning_rate": 0.0017782299884555148,
+                "weight_decay": 0.0014449830545981838,
+                "batch_size": 256
+            },
+            "json_issues": []
+        },
+        "09_hpo_lstm_pytorch": {
+            "code_file": "09_hpo_lstm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.00305798926307323,
+            "best_params": {
+                "d_model": 32,
+                "num_layers": 2,
+                "dropout_rate": 0.05,
+                "noise_stddev": 0.01,
+                "learning_rate": 0.0002451331674531841,
+                "weight_decay": 5.590664095943572e-06,
+                "batch_size": 64
+            },
+            "json_issues": []
+        },
+        "10_hpo_gru_pytorch": {
+            "code_file": "10_hpo_gru_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003110230909155454,
+            "best_params": {
+                "d_model": 32,
+                "num_layers": 1,
+                "dropout_rate": 0.1,
+                "noise_stddev": 0.05,
+                "learning_rate": 0.0003526137922041849,
+                "weight_decay": 8.49227776539662e-06,
+                "batch_size": 64
+            },
+            "json_issues": []
+        },
+        "11_hpo_dlinear_pytorch": {
+            "code_file": "11_hpo_dlinear_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.006728148201778813,
+            "best_params": {
+                "kernel_size": 25,
+                "learning_rate": 0.0024015639024822476,
+                "weight_decay": 1.051414192550206e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "12_hpo_nlinear_pytorch": {
+            "code_file": "12_hpo_nlinear_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0070468889030276755,
+            "best_params": {
+                "learning_rate": 0.0007436705882390548,
+                "weight_decay": 6.408391359387875e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "13_hpo_smamba_pytorch": {
+            "code_file": "13_hpo_smamba_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.0032186871934752597,
+            "best_params": {
+                "d_model": 128,
+                "d_state": 32,
+                "num_layers": 2,
+                "dropout_rate": 0.2,
+                "learning_rate": 0.0009199242357311898,
+                "weight_decay": 9.241634598289258e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "14_hpo_powermamba_pytorch": {
+            "code_file": "14_hpo_powermamba_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003207094915690368,
+            "best_params": {
+                "d_model": 64,
+                "d_state": 16,
+                "kernel_size": 37,
+                "num_layers": 1,
+                "dropout_rate": 0.1,
+                "learning_rate": 0.0010334896712376827,
+                "weight_decay": 6.137887541958836e-05,
+                "batch_size": 128
+            },
+            "json_issues": []
+        },
+        "15_hpo_timemachine_pytorch": {
+            "code_file": "15_hpo_timemachine_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003244324741722995,
+            "best_params": {
+                "d_model": 64,
+                "d_state": 8,
+                "num_layers": 1,
+                "dropout_rate": 0.05,
+                "learning_rate": 0.000297459516208823,
+                "weight_decay": 9.81088077897646e-05,
+                "batch_size": 256
+            },
+            "json_issues": []
+        },
+        "16_hpo_s4d_pytorch": {
+            "code_file": "16_hpo_s4d_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 0.003200398529920854,
+            "best_params": {
+                "d_model": 32,
+                "d_state": 32,
+                "num_layers": 1,
+                "dropout_rate": 0.1,
+                "learning_rate": 0.00045745782054754043,
+                "weight_decay": 1.2172958098369984e-05,
+                "batch_size": 64
+            },
+            "json_issues": []
+        },
+        "17_hpo_xgboost": {
+            "code_file": "17_hpo_xgboost.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 5.291074117024739,
+            "best_params": {
+                "learning_rate": 0.05808381432960484,
+                "max_depth": 4,
+                "min_child_weight": 7.096220622166763,
+                "subsample": 0.6648958679659673,
+                "colsample_bytree": 0.5617104625598865,
+                "reg_alpha": 0.0008553664409816912,
+                "reg_lambda": 0.27861143653900455
+            },
+            "json_issues": []
+        },
+        "18_hpo_lightgbm": {
+            "code_file": "18_hpo_lightgbm.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 5.266671012244705,
+            "best_params": {
+                "learning_rate": 0.0782912324448459,
+                "num_leaves": 55,
+                "max_depth": 4,
+                "min_child_samples": 94,
+                "subsample": 0.8863926539765621,
+                "colsample_bytree": 0.5965008670020099,
+                "reg_alpha": 0.013878630634523076,
+                "reg_lambda": 0.0005197186104644345
+            },
+            "json_issues": []
+        },
+        "19_hpo_sarima": {
+            "code_file": "19_hpo_sarima.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "VALIDATED",
+            "best_val_loss": 2.552409220601462,
+            "best_params": {
+                "p": 0,
+                "d": 1,
+                "q": 1,
+                "P": 1,
+                "D": 0,
+                "Q": 1
+            },
+            "json_issues": []
+        },
+        "20_hpo_mft_pytorch": {
+            "code_file": "20_hpo_mft_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "MISSING",
+            "best_val_loss": null,
+            "best_params": {},
+            "json_issues": [
+                "No best_params.json file found yet (pending HPO run)."
+            ]
+        },
+        "21_hpo_cnn_lstm_tfm_pytorch": {
+            "code_file": "21_hpo_cnn_lstm_tfm_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "MISSING",
+            "best_val_loss": null,
+            "best_params": {},
+            "json_issues": [
+                "No best_params.json file found yet (pending HPO run)."
+            ]
+        },
+        "22_hpo_fedformer_pytorch": {
+            "code_file": "22_hpo_fedformer_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "MISSING",
+            "best_val_loss": null,
+            "best_params": {},
+            "json_issues": [
+                "No best_params.json file found yet (pending HPO run)."
+            ]
+        },
+        "23_hpo_tcn_pytorch": {
+            "code_file": "23_hpo_tcn_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "MISSING",
+            "best_val_loss": null,
+            "best_params": {},
+            "json_issues": [
+                "No best_params.json file found yet (pending HPO run)."
+            ]
+        },
+        "24_hpo_nhits_pytorch": {
+            "code_file": "24_hpo_nhits_pytorch.py",
+            "code_status": "PASSED",
+            "code_issues": [],
+            "json_status": "MISSING",
+            "best_val_loss": null,
+            "best_params": {},
+            "json_issues": [
+                "No best_params.json file found yet (pending HPO run)."
+            ]
+        }
+    }
+}

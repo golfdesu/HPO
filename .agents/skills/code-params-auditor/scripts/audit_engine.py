@@ -20,27 +20,33 @@ import traceback
 
 # Workspace root
 WORKSPACE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-STATE_FILE = os.path.join(WORKSPACE_DIR, "audit_state.json")
+STATE_FILE = os.path.join(WORKSPACE_DIR, "configs", "audit_state.json")
+ROOT_STATE_FILE = os.path.join(WORKSPACE_DIR, "audit_state.json")
 
-# Model Class & Feature Mappings for PyTorch models
+# Model Class & Feature Mappings for PyTorch models (Unified 00-24)
 PYTORCH_MODEL_MAP = {
+    "00_hpo_tfm_custom_pytorch": ("EncoderOnlyTransformer", 27, False),
     "01_hpo_tfm_pytorch": ("BaselineTransformer", 27, False),
-    "02_hpo_ifm_pytorch": ("InformerModel", 27, False),
-    "03_hpo_afm_pytorch": ("AutoformerModel", 27, False),
-    "04_hpo_tft_pytorch": ("TFTModel", 27, "tft"),
-    "05_hpo_ptst_pytorch": ("PatchTSTModel", 28, True),
-    "06_hpo_dec_pytorch": ("DecoderOnlyTransformer", 27, False),
-    "07_hpo_encdec_pytorch": ("EncoderDecoderTransformer", 27, False),
-    "08_hpo_lstm_pytorch": ("LSTMBaseline", 27, False),
-    "09_hpo_dlinear_pytorch": ("DLinear", None, "univariate"),
-    "13_hpo_itfm_pytorch": ("iTransformerModel", 28, True),
-    "14_hpo_timesnet_pytorch": ("TimesNetModel", 27, False),
-    "15_hpo_nlinear_pytorch": ("NLinear", None, "univariate"),
-    "16_hpo_gru_pytorch": ("GRUBaseline", 27, False),
-    "17_hpo_smamba_pytorch": ("SMambaModel", 27, False),
-    "18_hpo_powermamba_pytorch": ("PowerMambaModel", 27, False),
-    "19_hpo_timemachine_pytorch": ("TimeMachineModel", 27, False),
-    "20_hpo_s4d_pytorch": ("S4DModel", 27, False),
+    "02_hpo_dec_pytorch": ("DecoderOnlyTransformer", 27, False),
+    "03_hpo_encdec_pytorch": ("EncoderDecoderTransformer", 27, False),
+    "04_hpo_ifm_pytorch": ("InformerModel", 27, False),
+    "05_hpo_afm_pytorch": ("AutoformerModel", 27, False),
+    "06_hpo_ptst_pytorch": ("PatchTSTModel", 28, True),
+    "07_hpo_itfm_pytorch": ("iTransformerModel", 28, True),
+    "08_hpo_timesnet_pytorch": ("TimesNetModel", 27, False),
+    "09_hpo_lstm_pytorch": ("LSTMBaseline", 27, False),
+    "10_hpo_gru_pytorch": ("GRUBaseline", 27, False),
+    "11_hpo_dlinear_pytorch": ("DLinear", None, "univariate"),
+    "12_hpo_nlinear_pytorch": ("NLinear", None, "univariate"),
+    "13_hpo_smamba_pytorch": ("SMambaModel", 27, False),
+    "14_hpo_powermamba_pytorch": ("PowerMambaModel", 27, False),
+    "15_hpo_timemachine_pytorch": ("TimeMachineModel", 27, False),
+    "16_hpo_s4d_pytorch": ("S4DModel", 27, False),
+    "20_hpo_mft_pytorch": ("MFTModel", 28, "mft"),
+    "21_hpo_cnn_lstm_tfm_pytorch": ("CNNLSTMTransformer", 27, False),
+    "22_hpo_fedformer_pytorch": ("FEDformer", 27, False),
+    "23_hpo_tcn_pytorch": ("TemporalConvNet", 27, "tcn"),
+    "24_hpo_nhits_pytorch": ("NHiTS", 28, False),
 }
 
 def audit_code_file(filepath):
@@ -180,13 +186,17 @@ def run_audit():
 
         print(f"[{code_status}] Code: {basename:<26} | JSON: {json_status:<12} | Loss: {str(best_loss)[:8] if best_loss else 'N/A'}")
 
-    # Save mutable state
+    # Save mutable state in configs/ and root
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=4)
+    with open(ROOT_STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=4)
 
+    total = len(py_files)
     print("\n" + "=" * 65)
     print(f"[OK] Audit State Patched: {STATE_FILE}")
-    print(f"[SUMMARY] Code Passed: {state['models_summary']['code_passed']}/20 | JSON Validated: {state['models_summary']['json_validated']}/20 | JSON Missing: {state['models_summary']['json_missing']}/20")
+    print(f"[SUMMARY] Code Passed: {state['models_summary']['code_passed']}/{total} | JSON Validated: {state['models_summary']['json_validated']}/{total} | JSON Missing: {state['models_summary']['json_missing']}/{total}")
     print("=" * 65)
     return state
 

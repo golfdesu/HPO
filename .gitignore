@@ -35,6 +35,9 @@
 !requirements.txt
 !README.md
 !AGENTS.md
+!configs/
+!configs/**
+!*.sbatch
 !selected_production_params.json
 !.agents/
 !.agents/**
