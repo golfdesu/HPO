@@ -29,7 +29,18 @@ HPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"
 MODEL_DIR = os.path.abspath(r"C:\Users\chaya\Documents\Program\Practice\model")
 
 # Canonical Paper Reference Specifications & Bug Check Rules
+# Canonical Paper Reference Specifications & Bug Check Rules (Unified 00-24)
+# Canonical Paper Reference Specifications & Bug Check Rules (Unified 00-24)
 PAPER_SPECS = {
+    "00": {
+        "name": "Custom Transformer (Attention Orthogonal)",
+        "paper": "Vaswani et al. (2017) + Orthogonal Attention Regularization",
+        "key_mechanisms": ["Multi-Head Self-Attention", "Orthogonal Regularization Loss", "Residual LayerNorm"],
+        "checks": [
+            ("Transformer", "Uses Transformer architecture"),
+            ("ortho", "Implements orthogonal loss / regularization"),
+        ]
+    },
     "01": {
         "name": "Vanilla Transformer",
         "paper": "Vaswani et al. (NIPS 2017) - Attention Is All You Need",
@@ -40,6 +51,22 @@ PAPER_SPECS = {
         ]
     },
     "02": {
+        "name": "Vanilla Decoder",
+        "paper": "Vaswani et al. (NIPS 2017) / Radford et al. - Autoregressive Causal Decoder",
+        "key_mechanisms": ["Causal Masked Self-Attention", "Autoregressive Constraint"],
+        "checks": [
+            ("triu", "Applies upper triangular causal mask"),
+        ]
+    },
+    "03": {
+        "name": "Encoder-Decoder",
+        "paper": "Vaswani et al. (NIPS 2017) - Sequence to Sequence Cross-Attention",
+        "key_mechanisms": ["Cross-Attention", "Separate Encoder & Decoder Stacks"],
+        "checks": [
+            ("MultiheadAttention", "Cross-attention mechanism"),
+        ]
+    },
+    "04": {
         "name": "Informer",
         "paper": "Zhou et al. (AAAI 2021) - Informer: Beyond Efficient Transformer",
         "key_mechanisms": ["ProbSparse Attention", "Distillation Layer"],
@@ -53,7 +80,7 @@ PAPER_SPECS = {
             else []
         )
     },
-    "03": {
+    "05": {
         "name": "Autoformer",
         "paper": "Wu et al. (NeurIPS 2021) - Autoformer: Decomposing Transformers with Auto-Correlation",
         "key_mechanisms": ["Series Decomposition", "Auto-Correlation (FFT delays)", "Progressive Trend Accumulation"],
@@ -67,22 +94,7 @@ PAPER_SPECS = {
             else []
         )
     },
-    "04": {
-        "name": "TFT (Temporal Fusion Transformer)",
-        "paper": "Lim et al. (IJF 2021) - Temporal Fusion Transformers for Interpretable Multi-horizon Time Series Forecasting",
-        "key_mechanisms": ["Interpretable Multi-Head Attention", "Variable Selection Network (VSN)", "Gated Residual Network (GRN)", "Pinball Loss (Quantiles)"],
-        "checks": [
-            ("VSN", "Variable Selection Network"),
-            ("GRN", "Gated Residual Network"),
-            ("FUTURE_KNOWN_COLS", "Utilizes known-future calendar covariates"),
-        ],
-        "bug_detector": lambda code: (
-            ["WARNING: TFT lacks known-future calendar covariates (using dummy last-step repeat)."]
-            if ("FUTURE_KNOWN_COLS" not in code and "x_future" not in code)
-            else []
-        )
-    },
-    "05": {
+    "06": {
         "name": "PatchTST",
         "paper": "Nie et al. (ICLR 2023) - A Time Series is Worth 64 Words: Long-term Forecasting with Transformers",
         "key_mechanisms": ["Patching", "Channel Independence (CI)", "Target Series Readout"],
@@ -96,69 +108,7 @@ PAPER_SPECS = {
             else []
         )
     },
-    "06": {
-        "name": "Vanilla Decoder",
-        "paper": "Vaswani et al. (NIPS 2017) / Radford et al. - Autoregressive Causal Decoder",
-        "key_mechanisms": ["Causal Masked Self-Attention", "Autoregressive Constraint"],
-        "checks": [
-            ("triu", "Applies upper triangular causal mask"),
-        ]
-    },
     "07": {
-        "name": "Encoder-Decoder",
-        "paper": "Vaswani et al. (NIPS 2017) - Sequence to Sequence Cross-Attention",
-        "key_mechanisms": ["Cross-Attention", "Separate Encoder & Decoder Stacks"],
-        "checks": [
-            ("MultiheadAttention", "Cross-attention mechanism"),
-        ]
-    },
-    "08": {
-        "name": "LSTM Baseline",
-        "paper": "Hochreiter & Schmidhuber (1997) - Long Short-Term Memory",
-        "key_mechanisms": ["LSTM Cell (Input/Forget/Output Gates)", "Dual Context Aggregation"],
-        "checks": [
-            ("LSTM", "PyTorch nn.LSTM sequence layer"),
-        ]
-    },
-    "09": {
-        "name": "DLinear",
-        "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-        "key_mechanisms": ["Series Decomposition", "1-Layer Linear on Trend", "1-Layer Linear on Seasonal"],
-        "checks": [
-            ("Linear_Trend", "1-layer linear trend head"),
-            ("Linear_Seasonal", "1-layer linear seasonal head"),
-        ]
-    },
-    "10": {
-        "name": "XGBoost Direct",
-        "paper": "Chen & Guestrin (KDD 2016) - XGBoost: A Scalable Tree Boosting System",
-        "key_mechanisms": ["Histogram Gradient Boosting", "Direct Multi-step Regression"],
-        "checks": [
-            ("xgb", "XGBoost regressor"),
-        ]
-    },
-    "11": {
-        "name": "LightGBM Direct",
-        "paper": "Ke et al. (NeurIPS 2017) - LightGBM: A Highly Efficient Gradient Boosting Decision Tree",
-        "key_mechanisms": ["LightGBM GBDT", "Subsample Bagging Frequency"],
-        "checks": [
-            ("lgb", "LightGBM regressor"),
-        ],
-        "bug_detector": lambda code: (
-            ["CRITICAL BUG: subsample < 1.0 but subsample_freq is not set (bagging is completely inactive)!"]
-            if ("subsample" in code and "subsample_freq" not in code)
-            else []
-        )
-    },
-    "12": {
-        "name": "SARIMA Baseline",
-        "paper": "Box & Jenkins (1970) - Time Series Analysis: Forecasting and Control",
-        "key_mechanisms": ["Seasonal Autoregressive Integrated Moving Average", "Period s=48 (24h)"],
-        "checks": [
-            ("SARIMAX", "Seasonal ARIMA model"),
-        ]
-    },
-    "13": {
         "name": "iTransformer",
         "paper": "Liu et al. (ICLR 2024) - iTransformer: Inverted Transformers Are Effective for Time Series Forecasting",
         "key_mechanisms": ["Inverted Tokens (Variates as Tokens)", "Variate-Attention", "Target Variate Token Readout"],
@@ -172,7 +122,7 @@ PAPER_SPECS = {
             else []
         )
     },
-    "14": {
+    "08": {
         "name": "TimesNet",
         "paper": "Wu et al. (ICLR 2023) - TimesNet: Temporal 2D-Variation Modeling for Time Series Analysis",
         "key_mechanisms": ["2D-FFT Top-k Periods", "2D Inception Block", "Adaptive Softmax Period Aggregation"],
@@ -186,15 +136,15 @@ PAPER_SPECS = {
             else []
         )
     },
-    "15": {
-        "name": "NLinear",
-        "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-        "key_mechanisms": ["Last-value Instance Normalization (X - X[-1])", "Single Linear Head"],
+    "09": {
+        "name": "LSTM Baseline",
+        "paper": "Hochreiter & Schmidhuber (1997) - Long Short-Term Memory",
+        "key_mechanisms": ["LSTM Cell (Input/Forget/Output Gates)", "Dual Context Aggregation"],
         "checks": [
-            (lambda c: "x[:, -1:]" in c or "- last" in c or "- x[:, -1" in c or "x - x[:" in c, "Subtracts sequence tail value (Instance Normalization)"),
+            ("LSTM", "PyTorch nn.LSTM sequence layer"),
         ]
     },
-    "16": {
+    "10": {
         "name": "GRU Baseline",
         "paper": "Cho et al. (EMNLP 2014); Chung et al. (NIPS 2014) - Gated Recurrent Unit",
         "key_mechanisms": ["GRU Cell (Reset and Update Gates)", "Dual Context Head"],
@@ -202,7 +152,24 @@ PAPER_SPECS = {
             ("GRU", "PyTorch nn.GRU sequence layer"),
         ]
     },
-    "17": {
+    "11": {
+        "name": "DLinear",
+        "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
+        "key_mechanisms": ["Series Decomposition", "1-Layer Linear on Trend", "1-Layer Linear on Seasonal"],
+        "checks": [
+            ("Linear_Trend", "1-layer linear trend head"),
+            ("Linear_Seasonal", "1-layer linear seasonal head"),
+        ]
+    },
+    "12": {
+        "name": "NLinear",
+        "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
+        "key_mechanisms": ["Last-value Instance Normalization (X - X[-1])", "Single Linear Head"],
+        "checks": [
+            (lambda c: "x[:, -1:]" in c or "- last" in c or "- x[:, -1" in c or "x - x[:" in c, "Subtracts sequence tail value (Instance Normalization)"),
+        ]
+    },
+    "13": {
         "name": "S-Mamba",
         "paper": "Wang et al. (2024); Gu & Dao (2023) - S-Mamba / Mamba: Linear-Time Sequence Modeling",
         "key_mechanisms": ["Bidirectional Selective SSM", "O(L) Complexity"],
@@ -211,7 +178,7 @@ PAPER_SPECS = {
             ("flip", "Bidirectional temporal scan"),
         ]
     },
-    "18": {
+    "14": {
         "name": "PowerMamba",
         "paper": "Menati et al. (2024) - PowerMamba: Lightweight State Space Model for Energy Forecasting",
         "key_mechanisms": ["Series Decomposition", "Dual-Path Architecture (Seasonal SSM + Trend Linear)"],
@@ -221,7 +188,7 @@ PAPER_SPECS = {
             ("linear_trend", "Linear projection on trend component"),
         ]
     },
-    "19": {
+    "15": {
         "name": "TimeMachine",
         "paper": "Ahamed & Cheng (2024) - TimeMachine: A Time-Series is Worth 4 Mambas for Long-term Forecasting",
         "key_mechanisms": ["Quadruple Mamba", "Cross-Time Mamba", "Cross-Channel Mamba"],
@@ -230,7 +197,7 @@ PAPER_SPECS = {
             ("channel_ssm", "Cross-channel/variate Mamba branch"),
         ]
     },
-    "20": {
+    "16": {
         "name": "S4D Baseline",
         "paper": "Gu et al. (ICLR 2022) - Efficiently Modeling Long Sequences with Structured State Spaces (S4D)",
         "key_mechanisms": ["Diagonal State Space Kernel", "Cauchy FFT Convolution"],
@@ -243,6 +210,84 @@ PAPER_SPECS = {
             if ("nn.Linear(d_model * 2, d_model)" in code and "linear2" in code and "chunk(2" in code)
             else []
         )
+    },
+    "17": {
+        "name": "XGBoost Direct",
+        "paper": "Chen & Guestrin (KDD 2016) - XGBoost: A Scalable Tree Boosting System",
+        "key_mechanisms": ["Histogram Gradient Boosting", "Direct Multi-step Regression"],
+        "checks": [
+            ("xgb", "XGBoost regressor"),
+        ]
+    },
+    "18": {
+        "name": "LightGBM Direct",
+        "paper": "Ke et al. (NeurIPS 2017) - LightGBM: A Highly Efficient Gradient Boosting Decision Tree",
+        "key_mechanisms": ["LightGBM GBDT", "Subsample Bagging Frequency"],
+        "checks": [
+            ("lgb", "LightGBM regressor"),
+        ],
+        "bug_detector": lambda code: (
+            ["CRITICAL BUG: subsample < 1.0 but subsample_freq is not set (bagging is completely inactive)!"]
+            if ("subsample" in code and "subsample_freq" not in code)
+            else []
+        )
+    },
+    "19": {
+        "name": "SARIMA Baseline",
+        "paper": "Box & Jenkins (1970) - Time Series Analysis: Forecasting and Control",
+        "key_mechanisms": ["Seasonal Autoregressive Integrated Moving Average", "Period s=48 (24h)"],
+        "checks": [
+            ("SARIMAX", "Seasonal ARIMA model"),
+        ]
+    },
+    "20": {
+        "name": "MFT (Multi-scale Fusion Transformer)",
+        "paper": "Liu et al. (Nature Sci. Rep. 2026) - Multi-scale Fusion Transformer for EV Charging Station Load Prediction",
+        "key_mechanisms": ["3M Scale-Masked Attention", "FAM PCC Base Weights", "MFM Cross-Attention", "LSTM Hybrid Decoder"],
+        "checks": [
+            ("ScaleMaskedAttention", "3M Scale-Masked Attention"),
+            ("compute_fam_base_weights", "FAM PCC static base weights"),
+            ("MultiVariableFusionModule", "MFM dynamic feature reweighting"),
+        ]
+    },
+    "21": {
+        "name": "CNN-LSTM-Transformer",
+        "paper": "Romia & Huang (IEEE TIA 2026) - Attention-Enhanced CNN-LSTM Models for Forecasting EV Fast-Charging Load",
+        "key_mechanisms": ["1D-CNN Local Feature Extraction", "Stacked LSTM Recurrence", "MHA Self-Attention", "Direct Forecast Head"],
+        "checks": [
+            ("CNNLSTMTransformer", "Composite CNN-LSTM-Transformer architecture"),
+            (lambda c: "TransformerEncoder" in c or "MultiheadAttention" in c, "Multi-Head Attention Transformer block"),
+        ]
+    },
+    "22": {
+        "name": "FEDformer",
+        "paper": "Zhou et al. (ICML 2022) - FEDformer: Frequency Enhanced Decomposed Transformer",
+        "key_mechanisms": ["Series Decomposition", "FourierBlock FEA-f", "Complex Multiplication", "Linear Trend Extrapolation"],
+        "checks": [
+            ("SeriesDecomp", "Moving average series decomposition"),
+            ("FourierBlock", "Frequency Enhanced Block (FEA-f)"),
+            ("rfft", "Real FFT frequency representation"),
+        ]
+    },
+    "23": {
+        "name": "TCN Baseline",
+        "paper": "Bai, Kolter & Koltun (2018) - An Empirical Evaluation of Generic Convolutional and Recurrent Networks",
+        "key_mechanisms": ["Dilated Causal 1D Convolutions", "Chomp1d Padding Removal", "Exponential Dilation Schedule"],
+        "checks": [
+            ("Chomp1d", "Chomp1d causal right-padding removal"),
+            ("TemporalBlock", "Temporal residual block"),
+            ("dilation", "Dilated convolutions"),
+        ]
+    },
+    "24": {
+        "name": "N-HiTS Baseline",
+        "paper": "Challu et al. (AAAI 2023) - N-HiTS: Neural Hierarchical Interpolation for Time Series Forecasting",
+        "key_mechanisms": ["Multi-Rate Subsampling Pooling", "Double Residual Stacking", "Hierarchical Interpolation"],
+        "checks": [
+            ("NHiTSBlock", "Hierarchical multi-rate block"),
+            ("interpolate", "Non-parametric hierarchical linear interpolation"),
+            ("backcast", "Double residual backcast subtraction"),
+        ]
     }
 }
 

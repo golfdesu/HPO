@@ -196,7 +196,6 @@ class NHiTSBlock(nn.Module):
 
         self.backcast_proj = nn.Linear(hidden_dim, lookback * num_features)
         self.forecast_theta = nn.Linear(hidden_dim, n_theta)
-        self.forecast_synth = nn.Linear(n_theta, horizon)
 
     def forward(self, x):
         B, L, D = x.shape
@@ -208,7 +207,12 @@ class NHiTSBlock(nn.Module):
 
         backcast = self.backcast_proj(h).reshape(B, L, D)
         theta_f = self.forecast_theta(h)
-        forecast = self.forecast_synth(theta_f)
+        forecast = F.interpolate(
+            theta_f.unsqueeze(1),
+            size=self.horizon,
+            mode='linear',
+            align_corners=True
+        ).squeeze(1)
 
         return backcast, forecast
 
