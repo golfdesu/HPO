@@ -2,6 +2,7 @@
 *
 
 # 2. ยกเว้น (เอาเข้า Git) เฉพาะโมเดล 01 ถึง 15 ที่ต้องการ
+!00_hpo_tfm_custom_pytorch.py
 !01_hpo_tfm_pytorch.py
 !02_hpo_ifm_pytorch.py
 !03_hpo_afm_pytorch.py
@@ -49,6 +50,7 @@
 *.json
 !selected_production_params.json
 *.sbatch
+!run_hpo_00_custom.sbatch
 
 # 4. Python cache
 __pycache__/
