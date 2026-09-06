@@ -1162,7 +1162,6 @@
                     "d_model": 32,
                     "num_layers": 2,
                     "dropout_rate": 0.05,
-                    "noise_stddev": 0.01,
                     "learning_rate": 0.0002451331674531841,
                     "weight_decay": 5.590664095943572e-06,
                     "batch_size": 64
@@ -1176,7 +1175,6 @@
                     "d_model": 32,
                     "num_layers": 2,
                     "dropout_rate": 0.05,
-                    "noise_stddev": 0.01,
                     "learning_rate": 0.0002451331674531841,
                     "weight_decay": 5.590664095943572e-06,
                     "batch_size": 64
@@ -1191,7 +1189,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.01,
                         "learning_rate": 0.0002451331674531841,
                         "weight_decay": 5.590664095943572e-06,
                         "batch_size": 64
@@ -1205,7 +1202,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.15000000000000002,
-                        "noise_stddev": 0.01,
                         "learning_rate": 0.00010086814745537598,
                         "weight_decay": 1.912124681326235e-06,
                         "batch_size": 64
@@ -1219,7 +1215,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0003451664042068719,
                         "weight_decay": 1.0405641617579685e-05,
                         "batch_size": 64
@@ -1233,7 +1228,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00037028880145537757,
                         "weight_decay": 5.604994743544598e-05,
                         "batch_size": 64
@@ -1247,7 +1241,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00011051158946165525,
                         "weight_decay": 3.173459272322961e-06,
                         "batch_size": 64
@@ -1261,7 +1254,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0003810422646819943,
                         "weight_decay": 3.538215632098699e-05,
                         "batch_size": 64
@@ -1275,7 +1267,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00043438961723936306,
                         "weight_decay": 1.985595951746098e-06,
                         "batch_size": 64
@@ -1289,7 +1280,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.1,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00040830232948531765,
                         "weight_decay": 1.4478226988835425e-06,
                         "batch_size": 64
@@ -1303,7 +1293,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.15000000000000002,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00014322639834023703,
                         "weight_decay": 1.9728612473577163e-05,
                         "batch_size": 64
@@ -1317,7 +1306,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.1,
-                        "noise_stddev": 0.01,
                         "learning_rate": 0.00011689225925892885,
                         "weight_decay": 7.474533495783035e-06,
                         "batch_size": 64
@@ -2514,7 +2502,6 @@
                     "d_model": 32,
                     "num_layers": 2,
                     "dropout_rate": 0.05,
-                    "noise_stddev": 0.05,
                     "learning_rate": 0.0002879072269095514,
                     "weight_decay": 1.1837388071721317e-05,
                     "batch_size": 64
@@ -2528,7 +2515,6 @@
                     "d_model": 32,
                     "num_layers": 1,
                     "dropout_rate": 0.1,
-                    "noise_stddev": 0.05,
                     "learning_rate": 0.0003526137922041849,
                     "weight_decay": 8.49227776539662e-06,
                     "batch_size": 64
@@ -2543,7 +2529,6 @@
                         "d_model": 32,
                         "num_layers": 1,
                         "dropout_rate": 0.1,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0003526137922041849,
                         "weight_decay": 8.49227776539662e-06,
                         "batch_size": 64
@@ -2557,7 +2542,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0002879072269095514,
                         "weight_decay": 1.1837388071721317e-05,
                         "batch_size": 64
@@ -2571,7 +2555,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00011051158946165525,
                         "weight_decay": 3.173459272322961e-06,
                         "batch_size": 64
@@ -2585,7 +2568,6 @@
                         "d_model": 32,
                         "num_layers": 1,
                         "dropout_rate": 0.1,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0008115582301818863,
                         "weight_decay": 1.5485399465892935e-05,
                         "batch_size": 64
@@ -2599,7 +2581,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.0003314239823741536,
                         "weight_decay": 4.2805153628343e-05,
                         "batch_size": 64
@@ -2613,7 +2594,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.15000000000000002,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00019118133851202317,
                         "weight_decay": 4.8334217635842186e-06,
                         "batch_size": 64
@@ -2627,7 +2607,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.15000000000000002,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.000237136067511996,
                         "weight_decay": 5.571845545631021e-06,
                         "batch_size": 64
@@ -2641,7 +2620,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.00030853038856240664,
                         "weight_decay": 3.3202580705192955e-05,
                         "batch_size": 64
@@ -2655,7 +2633,6 @@
                         "d_model": 32,
                         "num_layers": 2,
                         "dropout_rate": 0.05,
-                        "noise_stddev": 0.0,
                         "learning_rate": 0.0004427376465489104,
                         "weight_decay": 4.8581400729607586e-05,
                         "batch_size": 64
@@ -2669,7 +2646,6 @@
                         "d_model": 32,
                         "num_layers": 1,
                         "dropout_rate": 0.1,
-                        "noise_stddev": 0.05,
                         "learning_rate": 0.001391830764803176,
                         "weight_decay": 7.874995659805631e-06,
                         "batch_size": 64

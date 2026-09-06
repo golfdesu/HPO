@@ -1,6 +1,13 @@
 # Scientific Ground Truth & Paper Invariants
 
-Every single model script (01 to 20) in both `hyperparameter_tuning` and `model` must strictly adhere to these scientific invariants.
+Every single model script (00 to 31) in both `hyperparameter_tuning` and `model` must strictly adhere to these scientific invariants.
+
+---
+
+## 0. The Golden Rule of Benchmark Fidelity (Core Scientific Invariant)
+- **Model 00 (Proposed Custom Transformer)**: The **ONLY** model under active proposal and architectural invention (Thesis Contribution). It incorporates Attention Orthogonal Regularization ($\lambda_{\text{ortho}}$) and thesis-specific inductive biases.
+- **Models 01 through 31 (All Baselines)**: Must strictly match their canonical published research papers **100%** (Vaswani 2017, Informer, Autoformer, PatchTST, iTransformer, TimesNet, LSTM, GRU, DLinear, NLinear, S-Mamba, PowerMamba, TimeMachine, S4D, ModernTCN, etc.).
+- **NO FOREIGN ARTIFACTS IN BASELINES**: Baselines MUST NOT contain ad-hoc foreign layers (e.g., `GaussianNoise` / input jittering), unofficial structural shortcuts, or artificial feature dropping. All baselines must be adapted faithfully and fairly to the EV load sequence geometry ($L=96, H=48, 28$ features) following their canonical literature specifications without unvetted modifications.
 
 ---
 

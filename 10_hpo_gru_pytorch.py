@@ -118,26 +118,17 @@ print(f"Dataset Loaded! Train Tensors: {X_train_t.shape}, Val Tensors: {X_val_t.
 # ---------------------------------------------------------
 # 2. GRU Architecture (Cho et al., EMNLP 2014; Chung et al., 2014)
 # ---------------------------------------------------------
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.05):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            noise = torch.randn_like(x) * self.stddev
-            return x + noise
-        return x
-
+# 2. GRU Architecture (Cho et al., EMNLP 2014)
+# ---------------------------------------------------------
 class GRUBaseline(nn.Module):
     """
     Gated Recurrent Unit (GRU) Baseline for Multi-Horizon Time-Series Load Forecasting.
     Based on Cho et al. (EMNLP 2014) & Chung et al. (NIPS 2014).
     """
     def __init__(self, lookback, num_features, horizon, d_model=64, num_layers=2,
-                 dropout_rate=0.2, noise_stddev=0.05):
+                 dropout_rate=0.2):
         super().__init__()
         self.feature_proj = nn.Linear(num_features, d_model)
-        self.gaussian_noise = GaussianNoise(stddev=noise_stddev)
         self.dropout = nn.Dropout(dropout_rate)
 
         self.gru = nn.GRU(
@@ -157,7 +148,6 @@ class GRUBaseline(nn.Module):
     def forward(self, x):
         # x: [batch, lookback, num_features]
         x = self.feature_proj(x)
-        x = self.gaussian_noise(x)
         x = self.dropout(x)
 
         gru_out, _ = self.gru(x)  # [batch, lookback, d_model]
@@ -180,7 +170,6 @@ def objective(trial):
     d_model      = trial.suggest_categorical('d_model', [32, 64, 128])
     num_layers   = trial.suggest_int('num_layers', 1, 3)
     dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.3, step=0.05)
-    noise_stddev = trial.suggest_categorical('noise_stddev', [0.0, 0.01, 0.05])
     lr           = trial.suggest_float('learning_rate', 1e-4, 5e-3, log=True)
     weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-2, log=True)
     batch_size   = trial.suggest_categorical('batch_size', [64, 128, 256])
@@ -194,8 +183,7 @@ def objective(trial):
         horizon=HORIZON,
         d_model=d_model,
         num_layers=num_layers,
-        dropout_rate=dropout_rate,
-        noise_stddev=noise_stddev
+        dropout_rate=dropout_rate
     ).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)

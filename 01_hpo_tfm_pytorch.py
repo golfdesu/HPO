@@ -122,20 +122,11 @@ class PositionalEmbedding(nn.Module):
         positions = torch.arange(0, x.size(1), device=x.device)
         return x + self.pos_emb(positions)
 
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.01):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            return x + torch.randn_like(x) * self.stddev
-        return x
-# --- Model Definition ---
+# --- Model Definition (Vaswani et al., NeurIPS 2017) ---
 class BaselineTransformer(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
         self.proj = nn.Linear(num_features, d_model)
-        self.noise = GaussianNoise(0.01)
         self.pos_emb = PositionalEmbedding(lookback, d_model)
         self.drop = nn.Dropout(dropout_rate)
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=num_heads, dim_feedforward=d_ff, dropout=dropout_rate, batch_first=True, activation='relu')
@@ -146,7 +137,7 @@ class BaselineTransformer(nn.Module):
         self.head_drop2 = nn.Dropout(dropout_rate)
         self.out_proj = nn.Linear(64, horizon)
     def forward(self, x):
-        x = self.drop(self.pos_emb(self.noise(self.proj(x))))
+        x = self.drop(self.pos_emb(self.proj(x)))
         x = self.encoder(x)
         ctx = torch.cat([x[:, -1, :], torch.mean(x, dim=1)], dim=-1)
         h = F.relu(self.head_fc1(ctx))

@@ -25,9 +25,9 @@
             "paper_reference": "Vaswani et al. (NeurIPS 2017) - Attention Is All You Need",
             "status": "ALIGNED",
             "checked_mechanisms": [
-                "Multi-head self-attention encoder layers",
+                "Multi-head self-attention encoder layers (Vaswani et al., NeurIPS 2017)",
                 "Positional encoding",
-                "GaussianNoise layer parity between HPO and benchmark (stddev=0.01)",
+                "Canonical baseline purity: GaussianNoise completely purged from HPO and benchmark",
                 "Dual feature aggregation head (last step + global pooling)",
                 "Safe run_benchmark execution guard"
             ],
@@ -131,8 +131,8 @@
             "paper_reference": "Hochreiter & Schmidhuber (1997) - Long Short-Term Memory",
             "status": "ALIGNED",
             "checked_mechanisms": [
-                "Multi-layer nn.LSTM recurrence",
-                "GaussianNoise layer parity between HPO and benchmark (stddev=0.01)",
+                "Multi-layer nn.LSTM recurrence (Hochreiter & Schmidhuber, 1997)",
+                "Canonical baseline purity: GaussianNoise completely purged from HPO and benchmark",
                 "Dual feature aggregation head (last step + global pooling)",
                 "Safe run_benchmark execution guard"
             ],
@@ -144,8 +144,8 @@
             "paper_reference": "Cho et al. (EMNLP 2014) - Learning Phrase Representations using RNN Encoder-Decoder",
             "status": "ALIGNED",
             "checked_mechanisms": [
-                "Multi-layer nn.GRU recurrence",
-                "GaussianNoise layer parity between HPO and benchmark (stddev=0.05)",
+                "Multi-layer nn.GRU recurrence (Cho et al., EMNLP 2014)",
+                "Canonical baseline purity: GaussianNoise completely purged from HPO and benchmark",
                 "Dual feature aggregation head (last step + global pooling)",
                 "Safe run_benchmark execution guard"
             ],

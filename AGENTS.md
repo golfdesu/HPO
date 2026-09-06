@@ -73,6 +73,11 @@ Whenever agents need theoretical context, literature review details, mathematica
 6. **Sequence Geometry**: Lookback window $L = 96$ (48 hours), Forecast Horizon $H = 48$ (24 hours at 30-min intervals).
 7. **Reproducibility**: All HPO scripts must enforce `SEED = 42` via `set_seed(42)` across Python `random`, `numpy`, and `torch` (CPU/CUDA deterministic).
 
+### 2.1 The Golden Rule of Benchmark Fidelity & Canonical Purity (CRITICAL INVARIANT)
+- **Model 00 (Proposed Custom Transformer)**: The **ONLY** model under active proposal and architectural invention (Thesis Contribution). It incorporates Attention Orthogonal Regularization ($\lambda_{\text{ortho}}$) and thesis-specific inductive biases.
+- **Models 01 through 31 (All Baselines)**: Must strictly match their canonical published research papers **100%** (Vaswani 2017, Informer, Autoformer, PatchTST, iTransformer, TimesNet, LSTM, GRU, DLinear, NLinear, S-Mamba, PowerMamba, TimeMachine, S4D, ModernTCN, etc.).
+- **NO FOREIGN ARTIFACTS IN BASELINES**: Baselines MUST NOT contain ad-hoc foreign layers (e.g., `GaussianNoise` / input jittering), unofficial structural shortcuts, or artificial feature dropping. All baselines must be adapted faithfully and fairly to the EV load sequence geometry ($L=96, H=48, 28$ features) following their canonical literature specifications without unvetted modifications.
+
 ---
 
 ## 3. Comprehensive Model Catalog (All 32 Models: 00 to 31)
