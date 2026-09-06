@@ -1,19 +1,18 @@
 #!/bin/bash
 # ==============================================================================
-# SLURM Job Script: Transformer Models HPO Runner on NVIDIA H100 (Models 02, 05, 06)
+# SLURM Job Script: Transformer Models HPO Runner on 'mixed' Partition (Models 02, 05, 06)
 # Target Models:
 #   - Model 02: Vanilla Transformer Decoder (Vaswani et al., NeurIPS 2017)
 #   - Model 05: Autoformer (Wu et al., NeurIPS 2021) [AutoCorrelation + Series Decomp]
 #   - Model 06: PatchTST (Nie et al., ICLR 2023) [Patching + Channel Independence]
 #
-# Hardware Target: NVIDIA H100 80GB HBM3 (Node compute4)
-# Estimated Runtime: ~1.0 - 1.5 hours total (50 trials each)
+# Hardware Target: 'mixed' partition
+# Estimated Runtime: ~2.0 - 3.0 hours total (50 trials each)
 # ==============================================================================
 #SBATCH --job-name=hpo_02_05_06
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
-#SBATCH --partition=gpu-h100
-#SBATCH --nodelist=compute4
+#SBATCH --partition=mixed
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
