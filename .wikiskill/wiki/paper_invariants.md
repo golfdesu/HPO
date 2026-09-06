@@ -33,4 +33,30 @@ Every single model script (01 to 20) in both `hyperparameter_tuning` and `model`
 
 ## 5. Reproducibility
 - **Global Seed**: `SEED = 42` enforced across Python `random`, `numpy`, and `torch` (`torch.manual_seed(42)`, `torch.cuda.manual_seed_all(42)`).
-- **Seed Loop for Final Benchmarks**: `SEEDS = [164, 256, 355, 1234, 2026]`.\n
+- **Seed Loop for Final Benchmarks**: Multi-seed benchmark across 10 deterministic seeds (`[42, 123, 456, 789, 1024, 2024, 2025, 2026, 3407, 9999]`).
+
+---
+
+## 6. Multi-Seed Benchmark Output Parity
+Every benchmark model script in `model/` must serialize outputs following this exact schema:
+
+1. **`_results.json` Artifact**:
+   - `model_name`: String identifier.
+   - `seeds`: Object keyed by seed string (`"42"`, ...) containing:
+     - `overall_metrics`: Dict with 9 lowercase metrics: `mae`, `rmse`, `r2`, `wape`, `mape`, `mae_peak`, `wape_peak`, `bias`, `negative_pct`.
+     - `training_time_seconds` (float), `peak_gpu_memory_mb` (float).
+     - `train_loss` (list of floats), `val_loss` (list of floats), `epochs` (list of ints).
+     - `best_epoch` (int), `best_val_loss` (float).
+     - `per_step_metrics`: Checkpoints for `Step 0 (30 min)`, `Step 5 (3 hr)`, `Step 11 (6 hr)`, and `Step 47 (24 hr)`.
+     - `step_48_metrics`: 48-element lists `mae` and `rmse` across the forecast horizon.
+   - `summary`: Mean and standard deviation per metric (`mean`, `std`) + `mean_mae_by_step_48`.
+   - `config`: Architecture and hyperparameter dictionary.
+   - `best_seed`: Seed yielding best validation checkpoint.
+
+2. **`_predictions.npz` Artifact**:
+   - Keys: `y_true`, `seed_42`, ..., `seed_9999`, `pred_mean`, `pred_std`.
+   - Compressed via `np.savez_compressed`.
+
+3. **Dual-Path Persistence**:
+   - Write to both `outputs/<MODEL_NAME>/` and root working directory.
+   - Incremental JSON flushing after each seed to prevent data loss on HPC timeout.\n

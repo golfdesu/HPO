@@ -26,4 +26,27 @@
 ## 3. Tree-based Models (XGBoost & LightGBM)
 - **Multi-output Setup**: Train 48 independent models (one per horizon step) per seed. Total = 240 models for 5 seeds.
 - **LightGBM Bagging**: Must set `subsample_freq=1` when `subsample < 1.0`, otherwise bagging is silently ignored by LightGBM.
-- **Histogram Bins**: `max_bin=128` halves training time with negligible accuracy change.\n
+- **Histogram Bins**: `max_bin=128` halves training time with negligible accuracy change.
+
+---
+
+## 4. PyTorch Namespace Shadowing (`F` vs `torch.nn.functional`)
+- **Pitfall**: In models with multidimensional tensors, code unpacking `B, L, F = x.shape` shadows the top-level import `import torch.nn.functional as F`.
+- **Symptom**: Calling `F.softmax(...)`, `F.relu(...)`, or `F.interpolate(...)` later in the method raises `AttributeError: 'int' object has no attribute 'softmax'`.
+- **Rule**: Never use `F` as a dimension variable name. Always use `D`, `C`, `K`, or `num_feats`.
+
+---
+
+## 5. Erawan HPC Triton JIT Traps (`torch.bmm` outer products)
+- **Pitfall**: Using `torch.bmm` where one tensor has a unit dimension (e.g., `(B, 1, K)` and `(B, K, D)`) triggers PyTorch 2.1+'s Triton JIT compiler to generate specialized outer-product kernels.
+- **Symptom**: Crashes with `CalledProcessError: gcc ... Python.h: No such file or directory` on Rocky Linux HPC nodes without root packages.
+- **Rule**: Replace outer-product `bmm` with vectorized elementwise broadcast multiply and reduction:
+  ```python
+  (tensor_a * tensor_b.unsqueeze(1)).sum(dim=-1)
+  ```
+
+---
+
+## 6. Architecture Class Name Parity & Aliases
+- **Pitfall**: Defining `class ModelName(nn.Module):` but referencing `model = ModelNameModel(...)` in benchmark `run_seed` causes `NameError: name 'ModelNameModel' is not defined`.
+- **Rule**: Always verify instantiation matches class name exactly, and provide explicit aliases (e.g., `NHiTSModel = NHiTS`) when backward compatibility is helpful.\n

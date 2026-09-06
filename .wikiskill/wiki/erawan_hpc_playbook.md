@@ -26,6 +26,15 @@
 - **Unlike LightGBM**, `pip install xgboost` on Linux has full CUDA support included.
 - **Action**: Use `tree_method='hist'` and `'device': 'cuda'`.
 
+### Rule D: Avoid `torch.bmm` outer products triggering Triton JIT
+- **Trap**: In PyTorch 2.1+, certain outer-product matrix multiplications via `torch.bmm` (e.g. `(B, 1, K) x (B, K, D)`) automatically attempt to invoke Triton's JIT compiler to compile an outer-product CUDA kernel.
+- **Symptom**: `CalledProcessError: Command '['gcc', ...]` failing with `Python.h: No such file or directory` because Rocky Linux on `compute4` lacks `python3-devel`.
+- **Action**: Replace `torch.bmm` outer products with vectorized broadcast reduction:
+  ```python
+  # Instead of torch.bmm(l_q.unsqueeze(1), feat_k_pooled.transpose(1, 2)):
+  fused = (feat_k_pooled * l_q.unsqueeze(1)).sum(dim=-1)
+  ```
+
 ---
 
 ## 3. High-Performance Configuration Checklist for H100
