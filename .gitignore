@@ -27,6 +27,8 @@
 !22_hpo_fedformer_pytorch.py
 !23_hpo_tcn_pytorch.py
 !24_hpo_nhits_pytorch.py
+!25_hpo_tide_pytorch.py
+!26_hpo_nbeats_pytorch.py
 !*_best_params.json
 
 # 3. Explicitly track metadata, configs, docs
