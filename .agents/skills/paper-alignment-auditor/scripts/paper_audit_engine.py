@@ -23,6 +23,8 @@ import glob
 import json
 import re
 import datetime
+import argparse
+import subprocess
 
 # Root paths
 HPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
@@ -388,23 +390,71 @@ def audit_script(filepath):
         "deviations": deviations
     }
 
-def run_audit(target_dir, state_filename):
-    print("=" * 70)
-    print(f"[PAPER AUDIT] Scanning Directory: {target_dir}")
-    print("=" * 70)
+def get_changed_files(target_dir):
+    """Detect modified model python files via git status."""
+    try:
+        res = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=target_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False
+        )
+        changed = []
+        for line in res.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(maxsplit=1)
+            if len(parts) == 2:
+                fname = parts[1].strip('"')
+                base = os.path.basename(fname)
+                if base.endswith(".py") and len(base) >= 2 and base[:2].isdigit():
+                    changed.append(base)
+        return set(changed)
+    except Exception:
+        return set()
 
+def run_audit(target_dir, state_filename, model_filter=None, deviated_only=False, summary_only=False, changed_only=False):
     py_files = sorted(glob.glob(os.path.join(target_dir, "[0-9][0-9]_*.py")))
-    state = {
-        "last_updated": datetime.datetime.now().isoformat(),
-        "audit_scope": "Models 00-24 Comprehensive Literature & Code Audit",
-        "target_dir": target_dir,
-        "total_models_scanned": 0,
-        "summary": {
-            "fully_aligned": 0,
-            "deviated_or_bugs": 0
-        },
-        "results": {}
-    }
+    if not py_files:
+        return None
+
+    if changed_only:
+        changed_set = get_changed_files(target_dir)
+        py_files = [f for f in py_files if os.path.basename(f) in changed_set]
+        if not py_files:
+            if not summary_only:
+                print(f"[INFO] No modified model files in {os.path.basename(target_dir)} via git status.")
+            return None
+
+    if model_filter is not None:
+        target_prefix = str(model_filter).zfill(2)
+        py_files = [f for f in py_files if os.path.basename(f).startswith(target_prefix)]
+        if not py_files:
+            print(f"[WARNING] No model found matching prefix '{target_prefix}' in {target_dir}")
+            return None
+
+    state_path = os.path.join(target_dir, state_filename)
+    existing_state = {}
+    if os.path.exists(state_path):
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                existing_state = json.load(f)
+        except Exception:
+            existing_state = {}
+
+    results_map = existing_state.get("results", {}) if (model_filter or changed_only) else {}
+
+    printed_header = False
+    def ensure_header():
+        nonlocal printed_header
+        if not printed_header and not summary_only:
+            print("=" * 70)
+            print(f"[PAPER AUDIT] Scanning Directory: {target_dir}")
+            print("=" * 70)
+            printed_header = True
 
     for py_file in py_files:
         res = audit_script(py_file)
@@ -412,22 +462,41 @@ def run_audit(target_dir, state_filename):
             continue
 
         filename = os.path.basename(py_file)
-        state["results"][filename] = res
+        results_map[filename] = res
 
-        if res["status"] == "ALIGNED":
-            state["summary"]["fully_aligned"] += 1
-            status_tag = "[ALIGNED]"
-        else:
-            state["summary"]["deviated_or_bugs"] += 1
-            status_tag = "[DEVIATED]"
+        if summary_only:
+            continue
 
+        is_deviated = res["status"] != "ALIGNED"
+        if deviated_only and not is_deviated:
+            continue
+
+        ensure_header()
+        status_tag = "[ALIGNED]" if not is_deviated else "[DEVIATED]"
         dev_count = len(res["deviations"])
         dev_note = f"({dev_count} issues: {res['deviations'][0][:45]}...)" if dev_count > 0 else ""
         print(f"{status_tag:<10} {filename:<32} | {res['model_name']:<20} {dev_note}")
+        if is_deviated:
+            for dev in res["deviations"]:
+                print(f"   └─ Issue: {dev}")
 
-    state["total_models_scanned"] = len(state["results"])
+    fully_aligned = sum(1 for r in results_map.values() if r.get("status") == "ALIGNED")
+    deviated_count = sum(1 for r in results_map.values() if r.get("status") != "ALIGNED")
+    total_scanned = len(results_map)
 
-    state_path = os.path.join(target_dir, state_filename)
+    state = {
+        "last_updated": datetime.datetime.now().isoformat(),
+        "audit_scope": "Models 00-24 Comprehensive Literature & Code Audit",
+        "target_dir": target_dir,
+        "total_models_scanned": total_scanned,
+        "summary": {
+            "fully_aligned": fully_aligned,
+            "deviated_or_bugs": deviated_count
+        },
+        "results": results_map
+    }
+
+    # Save state
     with open(state_path, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=4)
 
@@ -437,16 +506,43 @@ def run_audit(target_dir, state_filename):
         with open(config_state_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=4)
 
-    print("\n" + "=" * 70)
-    print(f"[OK] Paper Alignment State Saved: {state_path}")
-    print(f"[SUMMARY] Fully Aligned: {state['summary']['fully_aligned']}/{state['total_models_scanned']} | Deviations/Bugs: {state['summary']['deviated_or_bugs']}/{state['total_models_scanned']}")
-    print("=" * 70 + "\n")
+    deviated_names = [f"{r['model_id']} ({r['model_name']})" for r in results_map.values() if r.get("status") != "ALIGNED"]
+    deviated_str = ", ".join(deviated_names) if deviated_names else "None"
+
+    print("-" * 70)
+    print(f"[SUMMARY] {os.path.basename(target_dir)} | Fully Aligned: {fully_aligned}/{total_scanned} | Deviations: {deviated_count}/{total_scanned}")
+    if deviated_count > 0:
+        print(f"         Deviated: {deviated_str}")
+    print("-" * 70)
     return state
 
 if __name__ == "__main__":
-    # Audit HPO directory
-    run_audit(HPO_DIR, "paper_alignment_state.json")
+    parser = argparse.ArgumentParser(description="SKILL.state Paper Alignment Auditor Engine")
+    parser.add_argument("--deviated-only", action="store_true", help="Print only models that have deviations or bugs")
+    parser.add_argument("--summary", action="store_true", help="Print only summary counts (ultra token-efficient)")
+    parser.add_argument("--model", type=str, default=None, help="Target a specific model ID (e.g. 13 or 04)")
+    parser.add_argument("--changed-only", action="store_true", help="Audit only models modified in git status")
+    parser.add_argument("--dir", type=str, choices=["all", "hpo", "model"], default="all", help="Target directory (default: all)")
+    args = parser.parse_args()
 
-    # If MODEL_DIR exists, audit MODEL directory as well
-    if os.path.exists(MODEL_DIR):
-        run_audit(MODEL_DIR, "paper_alignment_state.json")
+    # Audit HPO directory
+    if args.dir in ["all", "hpo"]:
+        run_audit(
+            HPO_DIR,
+            "paper_alignment_state.json",
+            model_filter=args.model,
+            deviated_only=args.deviated_only,
+            summary_only=args.summary,
+            changed_only=args.changed_only
+        )
+
+    # Audit MODEL directory
+    if args.dir in ["all", "model"] and os.path.exists(MODEL_DIR):
+        run_audit(
+            MODEL_DIR,
+            "paper_alignment_state.json",
+            model_filter=args.model,
+            deviated_only=args.deviated_only,
+            summary_only=args.summary,
+            changed_only=args.changed_only
+        )
