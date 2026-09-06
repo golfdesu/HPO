@@ -177,6 +177,18 @@ class ProbAttention(nn.Module):
         Q_reduce, M_top = self._prob_sparse_scores(queries_p, keys_p, U_part, u)
         scale = self.scale or 1.0 / np.sqrt(D)
         scores_top = torch.matmul(Q_reduce, keys_p.transpose(-2, -1)) * scale
+        if attn_mask is not None:
+            if isinstance(attn_mask, torch.Tensor):
+                if attn_mask.dim() == 2:
+                    _mask_ex = attn_mask[None, None, :, :].expand(B, H, L_Q, L_K)
+                elif attn_mask.dim() == 3:
+                    _mask_ex = attn_mask.unsqueeze(1).expand(B, H, L_Q, L_K)
+                else:
+                    _mask_ex = attn_mask.expand(B, H, L_Q, L_K)
+                mask_top = _mask_ex[torch.arange(B)[:, None, None], torch.arange(H)[None, :, None], M_top, :]
+            else:
+                mask_top = attn_mask.mask
+            scores_top = scores_top.masked_fill(mask_top.bool(), -1e9)
         attn_top = torch.softmax(scores_top, dim=-1)
         V_reduce = torch.matmul(self.dropout(attn_top), values_p)
         V_mean = values_p.mean(dim=-2, keepdim=True)  # official Informer: V.mean(dim=-2) for non-top-u queries
@@ -259,7 +271,11 @@ class InformerModel(nn.Module):
         dec_in = torch.cat([start_token, zero_placeholder], dim=1)
         dec = self.pos_emb_dec(dec_in)
 
-        dec_attn_out, _ = self.dec_attn(dec, dec, dec)
+        # Causal mask for generative decoder self-attention (Zhou et al., AAAI 2021)
+        dec_len = dec.size(1)
+        dec_mask = torch.triu(torch.ones(dec_len, dec_len, device=x.device, dtype=torch.bool), diagonal=1)
+
+        dec_attn_out, _ = self.dec_attn(dec, dec, dec, attn_mask=dec_mask)
         dec = self.norm1_dec(dec + self.drop(dec_attn_out))
         cross_attn_out, _ = self.cross_attn(queries=dec, keys=enc, values=enc)
         dec = self.norm2_dec(dec + self.drop(cross_attn_out))
