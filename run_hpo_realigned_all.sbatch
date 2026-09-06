@@ -20,7 +20,8 @@
 #SBATCH --job-name=hpo_master_8models
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
-#SBATCH --partition=gpu-h100,mixed
+#SBATCH --partition=gpu-h100
+#SBATCH --nodelist=compute4
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
