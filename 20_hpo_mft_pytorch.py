@@ -287,7 +287,7 @@ class MultiVariableFusionModule(nn.Module):
         feat_v = self.feat_v_proj(ext_perm)
         feat_k_pooled = feat_k.mean(dim=2)
 
-        scores = torch.bmm(l_q.unsqueeze(1), feat_k_pooled.transpose(1, 2)).squeeze(1) / math.sqrt(self.d_model)
+        scores = (feat_k_pooled * l_q.unsqueeze(1)).sum(dim=-1) / math.sqrt(self.d_model)
         sigma_w = F.softmax(scores, dim=-1)
 
         if self.base_weights.shape[0] == num_feats:
