@@ -160,14 +160,20 @@ X_val_t,   y_val_t   = create_windowed_tensors(X_val_scaled,   y_val_scaled,   L
 # 3. Model Architecture: FEDformer
 # ---------------------------------------------------------
 class SeriesDecomp(nn.Module):
+    """
+    Moving average series decomposition block (Wu et al. / Zhou et al.)
+    """
     def __init__(self, kernel_size=25):
         super().__init__()
         self.kernel_size = kernel_size
         self.avg = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=0)
 
     def forward(self, x):
-        front = x[:, 0:1, :].repeat(1, (self.kernel_size - 1) // 2, 1)
-        end   = x[:, -1:, :].repeat(1, self.kernel_size // 2, 1)
+        # x: [B, L, D]
+        pad_front = (self.kernel_size - 1) // 2
+        pad_end = self.kernel_size - 1 - pad_front
+        front = x[:, 0:1, :].repeat(1, pad_front, 1)
+        end   = x[:, -1:, :].repeat(1, pad_end, 1)
         x_pad = torch.cat([front, x, end], dim=1)
         x_pad = x_pad.transpose(1, 2)
         trend = self.avg(x_pad).transpose(1, 2)
@@ -176,51 +182,120 @@ class SeriesDecomp(nn.Module):
 
 
 class FourierBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, seq_len, modes=16):
+    """
+    Frequency Enhanced Block with Fourier Transform (FEB-f, Zhou et al., ICML 2022).
+    Multi-head frequency representation learning with complex linear transformation.
+    """
+    def __init__(self, d_model, n_heads=4, modes=16):
         super().__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.seq_len = seq_len
-        self.modes = min(modes, seq_len // 2)
+        self.d_model = d_model
+        self.n_heads = n_heads
+        assert d_model % n_heads == 0, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
+        self.d_k = d_model // n_heads
+        self.modes = modes
 
         self.weights_real = nn.Parameter(
-            torch.randn(self.modes, in_channels, out_channels) * 0.02
+            torch.randn(n_heads, modes, self.d_k, self.d_k) * 0.02
         )
         self.weights_imag = nn.Parameter(
-            torch.randn(self.modes, in_channels, out_channels) * 0.02
+            torch.randn(n_heads, modes, self.d_k, self.d_k) * 0.02
         )
+        self.out_proj = nn.Linear(d_model, d_model)
 
     def forward(self, x):
+        # x: [B, L, D]
         B, L, D = x.shape
-        x_fft = torch.fft.rfft(x, dim=1)
-        modes_eff = min(self.modes, x_fft.shape[1])
-        x_mode = x_fft[:, :modes_eff, :]
+        x_heads = x.view(B, L, self.n_heads, self.d_k).permute(0, 2, 1, 3)
 
-        w_real = self.weights_real[:modes_eff]
-        w_imag = self.weights_imag[:modes_eff]
+        x_fft = torch.fft.rfft(x_heads, dim=2)
+        L_freq = x_fft.shape[2]
+        modes_eff = min(self.modes, L_freq)
+
+        x_mode = x_fft[:, :, :modes_eff, :]
+        w_real = self.weights_real[:, :modes_eff, :, :]
+        w_imag = self.weights_imag[:, :modes_eff, :, :]
 
         xr = x_mode.real
         xi = x_mode.imag
 
-        out_r = torch.einsum('bmd,mde->bme', xr, w_real) - torch.einsum('bmd,mde->bme', xi, w_imag)
-        out_i = torch.einsum('bmd,mde->bme', xr, w_imag) + torch.einsum('bmd,mde->bme', xi, w_real)
+        out_r = torch.einsum('bhmd,hmde->bhme', xr, w_real) - torch.einsum('bhmd,hmde->bhme', xi, w_imag)
+        out_i = torch.einsum('bhmd,hmde->bhme', xr, w_imag) + torch.einsum('bhmd,hmde->bhme', xi, w_real)
         out_mode = torch.complex(out_r, out_i)
 
-        out_fft = torch.zeros(B, x_fft.shape[1], self.out_channels, device=x.device, dtype=torch.cfloat)
-        out_fft[:, :modes_eff, :] = out_mode
+        out_fft = torch.zeros(B, self.n_heads, L_freq, self.d_k, device=x.device, dtype=torch.cfloat)
+        out_fft[:, :, :modes_eff, :] = out_mode
 
-        out_time = torch.fft.irfft(out_fft, n=L, dim=1)
-        return out_time
+        out_time = torch.fft.irfft(out_fft, n=L, dim=2)
+        out_time = out_time.permute(0, 2, 1, 3).contiguous().view(B, L, D)
+
+        return self.out_proj(out_time)
+
+
+class FourierCrossAttention(nn.Module):
+    """
+    Fourier Cross Attention (FEA-f, Zhou et al., ICML 2022).
+    Cross-attention in frequency domain between decoder queries and encoder keys/values.
+    """
+    def __init__(self, d_model, n_heads=4, modes=16):
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+        assert d_model % n_heads == 0, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
+        self.d_k = d_model // n_heads
+        self.modes = modes
+
+        self.q_proj = nn.Linear(d_model, d_model)
+        self.k_proj = nn.Linear(d_model, d_model)
+        self.weights_real = nn.Parameter(
+            torch.randn(n_heads, modes, self.d_k, self.d_k) * 0.02
+        )
+        self.weights_imag = nn.Parameter(
+            torch.randn(n_heads, modes, self.d_k, self.d_k) * 0.02
+        )
+        self.out_proj = nn.Linear(d_model, d_model)
+
+    def forward(self, q, cross):
+        B, L_q, D = q.shape
+        _, L_k, _ = cross.shape
+
+        q_proj = self.q_proj(q).view(B, L_q, self.n_heads, self.d_k).permute(0, 2, 1, 3)
+        k_proj = self.k_proj(cross).view(B, L_k, self.n_heads, self.d_k).permute(0, 2, 1, 3)
+
+        q_fft = torch.fft.rfft(q_proj, dim=2)
+        k_fft = torch.fft.rfft(k_proj, dim=2)
+
+        modes_eff = min(self.modes, q_fft.shape[2], k_fft.shape[2])
+        q_mode = q_fft[:, :, :modes_eff, :]
+        k_mode = k_fft[:, :, :modes_eff, :]
+
+        cross_freq = (q_mode * torch.conj(k_mode)) / math.sqrt(self.d_k)
+        xr = cross_freq.real
+        xi = cross_freq.imag
+
+        w_real = self.weights_real[:, :modes_eff, :, :]
+        w_imag = self.weights_imag[:, :modes_eff, :, :]
+
+        out_r = torch.einsum('bhmd,hmde->bhme', xr, w_real) - torch.einsum('bhmd,hmde->bhme', xi, w_imag)
+        out_i = torch.einsum('bhmd,hmde->bhme', xr, w_imag) + torch.einsum('bhmd,hmde->bhme', xi, w_real)
+        out_mode = torch.complex(out_r, out_i)
+
+        out_fft = torch.zeros(B, self.n_heads, q_fft.shape[2], self.d_k, device=q.device, dtype=torch.cfloat)
+        out_fft[:, :, :modes_eff, :] = out_mode
+
+        out_time = torch.fft.irfft(out_fft, n=L_q, dim=2)
+        out_time = out_time.permute(0, 2, 1, 3).contiguous().view(B, L_q, D)
+
+        return self.out_proj(out_time)
 
 
 class FEDformerEncoderLayer(nn.Module):
-    def __init__(self, d_model, seq_len, modes=16, d_ff=128, dropout=0.1, kernel_size=25):
+    def __init__(self, d_model, n_heads=4, modes=16, d_ff=128, dropout=0.1, kernel_size=25):
         super().__init__()
+        self.self_attn = FourierBlock(d_model=d_model, n_heads=n_heads, modes=modes)
         self.decomp1 = SeriesDecomp(kernel_size)
         self.decomp2 = SeriesDecomp(kernel_size)
-        self.fourier = FourierBlock(d_model, d_model, seq_len, modes=modes)
         self.dropout = nn.Dropout(dropout)
-        
+
         self.mlp = nn.Sequential(
             nn.Linear(d_model, d_ff),
             nn.GELU(),
@@ -230,26 +305,67 @@ class FEDformerEncoderLayer(nn.Module):
         )
 
     def forward(self, x):
-        x_f = self.fourier(x)
+        x_f = self.self_attn(x)
         x = x + self.dropout(x_f)
-        x_season, _ = self.decomp1(x)
+        x, _ = self.decomp1(x)
 
-        x_mlp = self.mlp(x_season)
-        x = x_season + x_mlp
-        x_season, _ = self.decomp2(x)
-        return x_season
+        x_ff = self.mlp(x)
+        x = x + self.dropout(x_ff)
+        x, _ = self.decomp2(x)
+        return x
+
+
+class FEDformerDecoderLayer(nn.Module):
+    def __init__(self, d_model, n_heads=4, modes=16, d_ff=128, dropout=0.1, kernel_size=25):
+        super().__init__()
+        self.self_attn = FourierBlock(d_model=d_model, n_heads=n_heads, modes=modes)
+        self.cross_attn = FourierCrossAttention(d_model=d_model, n_heads=n_heads, modes=modes)
+        self.decomp1 = SeriesDecomp(kernel_size)
+        self.decomp2 = SeriesDecomp(kernel_size)
+        self.decomp3 = SeriesDecomp(kernel_size)
+        self.dropout = nn.Dropout(dropout)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, seasonal, cross, trend_part):
+        res = self.self_attn(seasonal)
+        seasonal, trend1 = self.decomp1(seasonal + self.dropout(res))
+        trend_part = trend_part + trend1
+
+        res = self.cross_attn(seasonal, cross)
+        seasonal, trend2 = self.decomp2(seasonal + self.dropout(res))
+        trend_part = trend_part + trend2
+
+        res = self.mlp(seasonal)
+        seasonal, trend3 = self.decomp3(seasonal + self.dropout(res))
+        trend_part = trend_part + trend3
+
+        return seasonal, trend_part
 
 
 class FEDformer(nn.Module):
+    """
+    Authentic FEDformer Architecture (Zhou et al., ICML 2022).
+    Full Encoder-Decoder with Frequency Enhanced Block (FEB-f),
+    Fourier Cross Attention (FEA-f), and Progressive Trend Accumulation.
+    """
     def __init__(
         self,
         lookback=96,
-        num_features=29,
+        num_features=30,
         horizon=48,
         d_model=64,
+        n_heads=4,
         modes=16,
+        num_encoder_layers=2,
+        num_decoder_layers=1,
         d_ff=128,
-        num_layers=2,
         dropout=0.1,
         kernel_size=25
     ):
@@ -257,46 +373,75 @@ class FEDformer(nn.Module):
         self.lookback = lookback
         self.num_features = num_features
         self.horizon = horizon
+        self.label_len = lookback // 2
+        self.d_model = d_model
 
-        self.decomp = SeriesDecomp(kernel_size)
+        self.decomp_init = SeriesDecomp(kernel_size)
         self.enc_embedding = nn.Linear(num_features, d_model)
+        self.dec_embedding = nn.Linear(num_features, d_model)
+        self.trend_embedding = nn.Linear(num_features, d_model)
 
-        self.layers = nn.ModuleList([
+        self.encoder_layers = nn.ModuleList([
             FEDformerEncoderLayer(
                 d_model=d_model,
-                seq_len=lookback,
+                n_heads=n_heads,
                 modes=modes,
                 d_ff=d_ff,
                 dropout=dropout,
                 kernel_size=kernel_size
             )
-            for _ in range(num_layers)
+            for _ in range(num_encoder_layers)
         ])
 
-        self.trend_proj = nn.Linear(lookback, horizon)
-        self.seasonal_head = nn.Sequential(
-            nn.Linear(d_model * lookback, d_model),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_model, horizon)
-        )
+        self.decoder_layers = nn.ModuleList([
+            FEDformerDecoderLayer(
+                d_model=d_model,
+                n_heads=n_heads,
+                modes=modes,
+                d_ff=d_ff,
+                dropout=dropout,
+                kernel_size=kernel_size
+            )
+            for _ in range(num_decoder_layers)
+        ])
+
+        self.seasonal_proj = nn.Linear(d_model, 1)
+        self.trend_proj = nn.Linear(d_model, 1)
 
     def forward(self, x):
-        seasonal_init, trend_init = self.decomp(x)
+        B = x.shape[0]
 
-        target_trend = trend_init[:, :, -1]
-        trend_out = self.trend_proj(target_trend)
+        x_seasonal, x_trend = self.decomp_init(x)
 
-        enc_out = self.enc_embedding(seasonal_init)
-        for layer in self.layers:
-            enc_out = layer(enc_out)
+        enc_in = self.enc_embedding(x_seasonal)
+        enc_out = enc_in
+        for enc_layer in self.encoder_layers:
+            enc_out = enc_layer(enc_out)
 
-        B, L, D = enc_out.shape
-        flat_seasonal = enc_out.reshape(B, L * D)
-        seasonal_out = self.seasonal_head(flat_seasonal)
+        zeros_seasonal = torch.zeros(B, self.horizon, self.num_features, device=x.device, dtype=x.dtype)
+        seasonal_dec_in = torch.cat([x_seasonal[:, -self.label_len:, :], zeros_seasonal], dim=1)
 
-        out = trend_out + seasonal_out
+        mean_trend = x_trend.mean(dim=1, keepdim=True).repeat(1, self.horizon, 1)
+        trend_dec_in = torch.cat([x_trend[:, -self.label_len:, :], mean_trend], dim=1)
+
+        dec_seasonal = self.dec_embedding(seasonal_dec_in)
+        dec_trend = self.trend_embedding(trend_dec_in)
+
+        for dec_layer in self.decoder_layers:
+            dec_seasonal, dec_trend = dec_layer(dec_seasonal, enc_out, dec_trend)
+
+        seasonal_pred = dec_seasonal[:, -self.horizon:, :]
+        trend_pred = dec_trend[:, -self.horizon:, :]
+
+        out_seasonal = self.seasonal_proj(seasonal_pred).squeeze(-1)
+        out_trend = self.trend_proj(trend_pred).squeeze(-1)
+
+        out = out_seasonal + out_trend
         return out
+
+
+FEDformerModel = FEDformer
+
 
 # ---------------------------------------------------------
 # 4. Optuna Objective Function
@@ -305,10 +450,13 @@ def objective(trial):
     set_seed(SEED)
 
     d_model = trial.suggest_categorical("d_model", [32, 64, 128])
-    modes   = trial.suggest_categorical("modes", [8, 16, 24])
+    valid_heads = [h for h in [2, 4, 8] if d_model % h == 0]
+    n_heads = trial.suggest_categorical("n_heads", valid_heads)
+    modes = trial.suggest_categorical("modes", [8, 16, 24])
     d_ff_mult = trial.suggest_categorical("d_ff_mult", [2, 4])
     d_ff = d_model * d_ff_mult
-    num_layers = trial.suggest_int("num_layers", 1, 3)
+    num_encoder_layers = trial.suggest_int("num_encoder_layers", 1, 3)
+    num_decoder_layers = trial.suggest_int("num_decoder_layers", 1, 2)
     kernel_size = trial.suggest_categorical("kernel_size", [13, 25, 49])
     dropout = trial.suggest_categorical("dropout", [0.05, 0.10, 0.15, 0.20])
 
@@ -333,9 +481,11 @@ def objective(trial):
         num_features=num_total_features,
         horizon=HORIZON,
         d_model=d_model,
+        n_heads=n_heads,
         modes=modes,
+        num_encoder_layers=num_encoder_layers,
+        num_decoder_layers=num_decoder_layers,
         d_ff=d_ff,
-        num_layers=num_layers,
         dropout=dropout,
         kernel_size=kernel_size
     ).to(device)

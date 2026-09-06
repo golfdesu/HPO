@@ -158,15 +158,18 @@ X_val_t,   y_val_t   = create_windowed_tensors(X_val_scaled,   y_val_scaled,   L
 # 3. Model Architecture: N-HiTS
 # ---------------------------------------------------------
 class NHiTSBlock(nn.Module):
+    """
+    Individual N-HiTS Block with multi-rate subsampling pooling and
+    canonical hierarchical knot interpolation (Challu et al., AAAI 2023).
+    """
     def __init__(
         self,
         lookback=96,
-        num_features=29,
+        num_features=30,
         horizon=48,
         pooling_size=8,
         n_layers=2,
         hidden_dim=128,
-        n_theta=12,
         dropout=0.1
     ):
         super().__init__()
@@ -174,8 +177,8 @@ class NHiTSBlock(nn.Module):
         self.num_features = num_features
         self.horizon = horizon
         self.pooling_size = pooling_size
-        self.n_theta = n_theta
 
+        # Multi-rate subsampling pooling layer
         if pooling_size > 1:
             self.pooling = nn.MaxPool1d(kernel_size=pooling_size, stride=pooling_size, ceil_mode=True)
             pooled_len = math.ceil(lookback / pooling_size)
@@ -185,6 +188,7 @@ class NHiTSBlock(nn.Module):
 
         input_dim = pooled_len * num_features
 
+        # Multi-layer Perceptron
         layers = []
         in_d = input_dim
         for _ in range(n_layers):
@@ -194,34 +198,55 @@ class NHiTSBlock(nn.Module):
             in_d = hidden_dim
         self.mlp = nn.Sequential(*layers)
 
-        self.backcast_proj = nn.Linear(hidden_dim, lookback * num_features)
-        self.forecast_theta = nn.Linear(hidden_dim, n_theta)
+        # Knots for forecast and backcast
+        self.n_theta_f = max(4, horizon // max(1, pooling_size))
+        self.n_theta_b = max(4, lookback // max(1, pooling_size))
+
+        # Hierarchical knot projection layers (eliminates dense linear parameter explosion)
+        self.backcast_theta = nn.Linear(hidden_dim, self.n_theta_b * num_features)
+        self.forecast_theta = nn.Linear(hidden_dim, self.n_theta_f)
 
     def forward(self, x):
+        # x: [B, L, D]
         B, L, D = x.shape
+
+        # Multi-rate subsampling
         x_t = x.transpose(1, 2)
         x_pool = self.pooling(x_t)
         x_flat = x_pool.reshape(B, -1)
 
         h = self.mlp(x_flat)
 
-        backcast = self.backcast_proj(h).reshape(B, L, D)
-        theta_f = self.forecast_theta(h)
+        # Backcast synthesis via Hierarchical Knot Interpolation:
+        # Project h -> n_theta_b * D, reshape -> (B * D, 1, n_theta_b)
+        theta_b = self.backcast_theta(h)  # [B, n_theta_b * D]
+        theta_b = theta_b.view(B, self.n_theta_b, D).transpose(1, 2)  # [B, D, n_theta_b]
+        theta_b = theta_b.reshape(B * D, 1, self.n_theta_b)            # [B * D, 1, n_theta_b]
+
+        # Interpolate knots to lookback length L
+        backcast = F.interpolate(theta_b, size=L, mode='linear', align_corners=True)  # [B * D, 1, L]
+        backcast = backcast.view(B, D, L).transpose(1, 2)  # [B, L, D]
+
+        # Forecast synthesis via Hierarchical Knot Interpolation:
+        theta_f = self.forecast_theta(h)  # [B, n_theta_f]
         forecast = F.interpolate(
             theta_f.unsqueeze(1),
             size=self.horizon,
             mode='linear',
             align_corners=True
-        ).squeeze(1)
+        ).squeeze(1)  # [B, horizon]
 
         return backcast, forecast
 
 
 class NHiTS(nn.Module):
+    """
+    N-HiTS Architecture stacking multiple multi-rate resolution blocks (Challu et al., AAAI 2023).
+    """
     def __init__(
         self,
         lookback=96,
-        num_features=29,
+        num_features=30,
         horizon=48,
         pooling_sizes=None,
         n_layers=2,
@@ -238,7 +263,6 @@ class NHiTS(nn.Module):
 
         self.blocks = nn.ModuleList()
         for pool_size in pooling_sizes:
-            n_theta = max(4, horizon // max(1, pool_size))
             self.blocks.append(
                 NHiTSBlock(
                     lookback=lookback,
@@ -247,7 +271,6 @@ class NHiTS(nn.Module):
                     pooling_size=pool_size,
                     n_layers=n_layers,
                     hidden_dim=hidden_dim,
-                    n_theta=n_theta,
                     dropout=dropout
                 )
             )
@@ -262,6 +285,9 @@ class NHiTS(nn.Module):
             total_forecast = total_forecast + forecast
 
         return total_forecast
+
+
+NHiTSModel = NHiTS
 
 # ---------------------------------------------------------
 # 4. Optuna Objective Function

@@ -37,6 +37,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.nn.utils import weight_norm
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 
@@ -169,30 +170,35 @@ class Chomp1d(nn.Module):
 class TemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.1):
         super().__init__()
-        self.conv1 = nn.Conv1d(
+        self.conv1 = weight_norm(nn.Conv1d(
             n_inputs, n_outputs, kernel_size,
             stride=stride, padding=padding, dilation=dilation
-        )
+        ))
         self.chomp1 = Chomp1d(padding)
-        self.bn1 = nn.BatchNorm1d(n_outputs)
         self.relu1 = nn.ReLU()
         self.dropout1 = nn.Dropout(dropout)
 
-        self.conv2 = nn.Conv1d(
+        self.conv2 = weight_norm(nn.Conv1d(
             n_outputs, n_outputs, kernel_size,
             stride=stride, padding=padding, dilation=dilation
-        )
+        ))
         self.chomp2 = Chomp1d(padding)
-        self.bn2 = nn.BatchNorm1d(n_outputs)
         self.relu2 = nn.ReLU()
         self.dropout2 = nn.Dropout(dropout)
 
         self.net = nn.Sequential(
-            self.conv1, self.chomp1, self.bn1, self.relu1, self.dropout1,
-            self.conv2, self.chomp2, self.bn2, self.relu2, self.dropout2
+            self.conv1, self.chomp1, self.relu1, self.dropout1,
+            self.conv2, self.chomp2, self.relu2, self.dropout2
         )
         self.downsample = nn.Conv1d(n_inputs, n_outputs, 1) if n_inputs != n_outputs else None
         self.relu = nn.ReLU()
+        self.init_weights()
+
+    def init_weights(self):
+        self.conv1.weight.data.normal_(0, 0.01)
+        self.conv2.weight.data.normal_(0, 0.01)
+        if self.downsample is not None:
+            self.downsample.weight.data.normal_(0, 0.01)
 
     def forward(self, x):
         out = self.net(x)
@@ -204,7 +210,7 @@ class TemporalConvNet(nn.Module):
     def __init__(
         self,
         lookback=96,
-        num_features=29,
+        num_features=30,
         horizon=48,
         num_channels=None,
         kernel_size=3,
@@ -240,12 +246,8 @@ class TemporalConvNet(nn.Module):
         self.network = nn.Sequential(*layers)
         last_dim = num_channels[-1]
 
-        self.head = nn.Sequential(
-            nn.Linear(last_dim * 2, last_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(last_dim, horizon)
-        )
+        # Dual-pool projection head: [y_L, mean(y)] -> Linear -> [B, H]
+        self.head = nn.Linear(last_dim * 2, horizon)
 
     def forward(self, x):
         x_t = x.transpose(1, 2)
@@ -258,6 +260,9 @@ class TemporalConvNet(nn.Module):
 
         out = self.head(fused)
         return out
+
+
+TemporalConvNetModel = TemporalConvNet
 
 # ---------------------------------------------------------
 # 4. Optuna Objective Function

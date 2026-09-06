@@ -181,7 +181,7 @@ class CNNLSTMTransformer(nn.Module):
     def __init__(
         self,
         lookback=96,
-        num_features=29,
+        num_features=30,
         horizon=48,
         cnn_channels=64,
         kernel_size=3,
