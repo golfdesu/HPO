@@ -161,6 +161,31 @@ val_dataset   = TensorDataset(X_val_t,   y_val_t)
 # ---------------------------------------------------------
 # 3. Model Architecture: Non-stationary Transformer (NeurIPS 2022)
 # ---------------------------------------------------------
+class Projector(nn.Module):
+    """
+    MLP Projector to learn De-stationary factors from raw series and statistics
+    (THUML NeurIPS 2022: Liu et al., 'Non-stationary Transformers')
+    """
+    def __init__(self, enc_in, seq_len, hidden_dim, output_dim, kernel_size=3):
+        super().__init__()
+        padding = 1
+        self.series_conv = nn.Conv1d(
+            in_channels=seq_len, out_channels=1, kernel_size=kernel_size, padding=padding, padding_mode='circular', bias=False
+        )
+        self.backbone = nn.Sequential(
+            nn.Linear(2 * enc_in, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_dim, bias=False)
+        )
+
+    def forward(self, x, stats):
+        batch_size = x.shape[0]
+        x_c = self.series_conv(x)             # [B, 1, enc_in]
+        x_c = torch.cat([x_c, stats], dim=1)  # [B, 2, enc_in]
+        x_c = x_c.view(batch_size, -1)        # [B, 2 * enc_in]
+        return self.backbone(x_c)             # [B, output_dim]
+
+
 class DeStationaryAttention(nn.Module):
     def __init__(self, d_model, num_heads=4, dropout=0.1):
         super().__init__()
@@ -175,15 +200,15 @@ class DeStationaryAttention(nn.Module):
         self.drop = nn.Dropout(dropout)
 
     def forward(self, x, tau, delta):
-        # x: [B, L, d_model], tau: [B, 1, 1, 1], delta: [B, 1, 1, 1]
+        # x: [B, L, d_model], tau: [B, 1, 1, 1], delta: [B, 1, 1, S]
         B, L, _ = x.shape
         q = self.q_proj(x).reshape(B, L, self.num_heads, self.head_dim).transpose(1, 2) # [B, H, L, D_h]
         k = self.k_proj(x).reshape(B, L, self.num_heads, self.head_dim).transpose(1, 2)
         v = self.v_proj(x).reshape(B, L, self.num_heads, self.head_dim).transpose(1, 2)
 
-        # Scaled dot product with De-stationary factor modulation
-        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim) # [B, H, L, L]
-        scores = scores * tau + delta
+        # Scaled dot product with De-stationary factor modulation (THUML NeurIPS 2022)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim) # [B, H, L, S]
+        scores = scores * tau + delta  # delta varies across key dimension S, non-trivial under softmax
         attn_weights = self.drop(F.softmax(scores, dim=-1))
 
         out = torch.matmul(attn_weights, v) # [B, H, L, D_h]
@@ -236,18 +261,14 @@ class NonStationaryTransformer(nn.Module):
 
         self.enc_embedding = nn.Linear(num_features, d_model)
 
-        # De-stationary Factor Projector (learns tau and delta from mu and sigma)
-        stats_dim = num_features * 2
-        self.tau_learner = nn.Sequential(
-            nn.Linear(stats_dim, d_model // 2),
-            nn.ReLU(),
-            nn.Linear(d_model // 2, 1),
-            nn.Sigmoid()
+        # De-stationary Factor Projectors (THUML NeurIPS 2022)
+        # tau: scalar scaling factor [B, 1] -> [B, 1, 1, 1]
+        # delta: shift vector along Key dimension [B, seq_len] -> [B, 1, 1, S]
+        self.tau_learner = Projector(
+            enc_in=num_features, seq_len=lookback, hidden_dim=d_model // 2, output_dim=1
         )
-        self.delta_learner = nn.Sequential(
-            nn.Linear(stats_dim, d_model // 2),
-            nn.ReLU(),
-            nn.Linear(d_model // 2, 1)
+        self.delta_learner = Projector(
+            enc_in=num_features, seq_len=lookback, hidden_dim=d_model // 2, output_dim=lookback
         )
 
         d_ff = d_model * d_ff_mult
@@ -268,10 +289,9 @@ class NonStationaryTransformer(nn.Module):
         std_x = torch.sqrt(torch.var(x, dim=1, keepdim=True, unbiased=False) + 1e-5) # [B, 1, D]
         x_norm = (x - mean_x) / std_x                       # [B, L, D]
 
-        # 2. Extract De-stationary modulation factors
-        stats = torch.cat([mean_x.squeeze(1), std_x.squeeze(1)], dim=-1) # [B, 2*D]
-        tau = self.tau_learner(stats).unsqueeze(1).unsqueeze(1)    # [B, 1, 1, 1]
-        delta = self.delta_learner(stats).unsqueeze(1).unsqueeze(1)# [B, 1, 1, 1]
+        # 2. Extract De-stationary modulation factors (THUML NeurIPS 2022)
+        tau = torch.exp(self.tau_learner(x, mean_x)).unsqueeze(1).unsqueeze(1)    # [B, 1, 1, 1]
+        delta = self.delta_learner(x, mean_x).unsqueeze(1).unsqueeze(1)           # [B, 1, 1, S]
 
         # 3. De-stationary Transformer Encoder
         h = self.enc_embedding(x_norm) # [B, L, d_model]

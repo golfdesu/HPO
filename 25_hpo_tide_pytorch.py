@@ -222,14 +222,12 @@ class TiDE(nn.Module):
             in_d = d_hidden
         self.encoder = nn.Sequential(*enc_layers)
 
-        # 3. Dense Decoder: maps hidden state to horizon representation
-        decoder_output_dim = horizon * d_dec
+        # 3. Dense Decoder: operates at d_hidden with final projection
         dec_layers = []
-        in_d = d_hidden
         for _ in range(num_decoder_layers):
-            dec_layers.append(ResBlock(in_d, decoder_output_dim, d_hidden, dropout=dropout))
-            in_d = decoder_output_dim
+            dec_layers.append(ResBlock(d_hidden, d_hidden, d_hidden, dropout=dropout))
         self.decoder = nn.Sequential(*dec_layers)
+        self.decoder_proj = nn.Linear(d_hidden, horizon * d_dec)
         self.d_dec = d_dec
 
         # 4. Temporal Output Head
@@ -256,7 +254,8 @@ class TiDE(nn.Module):
 
         # Dense Encoder & Decoder
         e = self.encoder(flat_input)          # [B, d_hidden]
-        g = self.decoder(e)                   # [B, horizon * d_dec]
+        d = self.decoder(e)                   # [B, d_hidden]
+        g = self.decoder_proj(d)              # [B, horizon * d_dec]
         g = g.reshape(B, self.horizon, self.d_dec)  # [B, horizon, d_dec]
 
         # Temporal Output Head

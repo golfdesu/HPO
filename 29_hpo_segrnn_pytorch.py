@@ -183,51 +183,62 @@ class SegRNN(nn.Module):
         self.horizon = horizon
         self.target_idx = target_idx
         self.seg_len = seg_len
-        self.num_segs = lookback // seg_len
+        self.num_segs_x = lookback // seg_len
+        self.num_segs_y = horizon // seg_len
 
-        # Segment encoder projection
-        self.seg_proj = nn.Linear(seg_len, d_model)
+        # Segment encoder value embedding (Lin et al., ICLR 2024)
+        self.value_embedding = nn.Sequential(
+            nn.Linear(seg_len, d_model),
+            nn.ReLU()
+        )
 
         # Recurrent Core across segments
         self.rnn = nn.GRU(
             input_size=d_model,
             hidden_size=d_model,
             num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0
+            batch_first=True
         )
 
-        # Horizon decoder
-        self.dec_head = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.GELU(),
+        # PMF (Parallel Multi-step Forecasting) Positional & Channel Query Embeddings
+        self.pos_emb = nn.Parameter(torch.randn(self.num_segs_y, d_model // 2))
+        self.channel_emb = nn.Parameter(torch.randn(num_features, d_model // 2))
+
+        # Output prediction head
+        self.predict = nn.Sequential(
             nn.Dropout(dropout),
-            nn.Linear(d_model, horizon)
+            nn.Linear(d_model, seg_len)
         )
 
     def forward(self, x):
         # x: [B, L, num_features]
         B, L, D = x.shape
 
-        # Slicing into segments: [B, D, N_seg, seg_len]
-        x_d = x.transpose(1, 2)  # [B, D, L]
-        x_seg = x_d.unfold(dimension=2, size=self.seg_len, step=self.seg_len) # [B, D, N_seg, seg_len]
+        # 1. Last-value normalization (Lin et al., ICLR 2024)
+        seq_last = x[:, -1:, :].detach()
+        x_norm = (x - seq_last).permute(0, 2, 1)  # [B, D, L]
 
-        # Flatten batch and variate dimensions: [B * D, N_seg, seg_len]
-        x_in = x_seg.reshape(B * D, self.num_segs, self.seg_len)
-        h_seg = self.seg_proj(x_in)  # [B * D, N_seg, d_model]
+        # 2. Segment and value embedding: [B * D, num_segs_x, d_model]
+        x_in = self.value_embedding(x_norm.reshape(-1, self.num_segs_x, self.seg_len))
 
-        # Recurrent state extraction
-        _, h_last = self.rnn(h_seg)  # h_last: [num_layers, B * D, d_model]
-        h_state = h_last[-1]         # [B * D, d_model]
+        # 3. Recurrent Encoding across segments
+        _, hn = self.rnn(x_in) # hn: [1, B * D, d_model]
 
-        # Decode directly to horizon: [B * D, horizon]
-        out_flat = self.dec_head(h_state)
-        out = out_flat.reshape(B, D, self.horizon)  # [B, D, horizon]
+        # 4. PMF (Parallel Multi-step Forecasting) Decoding
+        pos_emb = self.pos_emb.unsqueeze(0).repeat(D, 1, 1)
+        channel_emb = self.channel_emb.unsqueeze(1).repeat(1, self.num_segs_y, 1)
+        query = torch.cat([pos_emb, channel_emb], dim=-1)
+        query = query.view(-1, 1, query.shape[-1]).repeat(B, 1, 1) # [B * D * num_segs_y, 1, d_model]
 
-        # Target read-out
-        target_forecast = out[:, self.target_idx, :] # [B, horizon]
-        return target_forecast
+        hn_repeat = hn.repeat(1, 1, self.num_segs_y).view(1, -1, hn.shape[-1]) # [1, B * D * num_segs_y, d_model]
+        _, hy = self.rnn(query, hn_repeat)
+        y = self.predict(hy).view(B, D, self.horizon)             # [B, D, horizon]
+
+        # 5. De-normalization
+        y = y + seq_last.permute(0, 2, 1)
+
+        # 6. Readout target forecast
+        return y[:, self.target_idx, :]
 
 SegRNNModel = SegRNN
 
