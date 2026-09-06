@@ -167,6 +167,17 @@ All agents operating in this workspace must consult and adhere to the persistent
 - **Preflight Verification**: Run `python .wikiskill/skills/scripts/preflight_check.py` before launching any run.
 - **Gating Validation**: Run `python .wikiskill/skills/scripts/validate_gating.py` after any code modification.
 
+### 6.1 SKILL.state Mandatory Protocol for Paper & Code Audits
+Whenever an agent is tasked with **auditing, checking, or re-checking models against papers or code** (e.g. "ตรวจโค้ดกับเปเปอร์", "re-check paper alignment", "audit model X"):
+1. **ANTI-WASTE DIRECTIVE**: Do NOT perform ad-hoc exhaustive reading of raw `.py` files or dumping hundreds of lines of code/PDFs into context.
+2. **MANDATORY SKILL STATE ACTIVATION**:
+   - First, inspect `paper_alignment_state.json` (and `audit_state.json`) to read existing compliance status and known deviations with zero token waste.
+   - Run the programmatic audit engine:
+     `python .agents/skills/paper-alignment-auditor/scripts/paper_audit_engine.py`
+3. **PERSISTENT STATE RECORDING**:
+   - Whenever an issue is discovered or remediated, immediately update `paper_alignment_state.json` (`status`: `"ALIGNED"` | `"DEVIATED"`, with exact mechanism details).
+   - This ensures institutional memory is preserved so subsequent agents know model integrity instantly without re-auditing.
+
 ---
 
 ## 7. Agent Operational Directives & Safety Rules
