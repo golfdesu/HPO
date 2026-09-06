@@ -302,7 +302,7 @@ class MultiVariableFusionModule(nn.Module):
         return E
 
 class MFTModel(nn.Module):
-    def __init__(self, lookback=96, num_features=29, horizon=48,
+    def __init__(self, lookback=96, num_features=28, horizon=48,
                  target_idx=None, base_weights=None,
                  d_model=64, num_heads=4, d_ff=128, num_layers=2,
                  decoder_hidden_dim=64, dropout_rate=0.1):
@@ -460,7 +460,7 @@ def objective(trial):
 # ---------------------------------------------------------
 if __name__ == '__main__':
     print("=" * 70)
-    print("🚀 Model 21: Multi-scale Fusion Transformer (MFT) FULL HPO Search")
+    print("🚀 Model 20: Multi-scale Fusion Transformer (MFT) FULL HPO Search")
     print("=" * 70)
     print("Starting Bayesian HPO Study (50 trials on Caltech ACN)...\n")
     optuna.logging.set_verbosity(optuna.logging.INFO)
