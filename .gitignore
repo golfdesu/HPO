@@ -42,6 +42,7 @@
 !requirements.txt
 !README.md
 !AGENTS.md
+!CLAUDE.md
 !configs/
 !configs/**
 !best_params/

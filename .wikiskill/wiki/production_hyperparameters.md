@@ -57,3 +57,22 @@ All models forecast on Caltech ACN aggregate station load ($L=96, H=48$ at 30-mi
    - S4D, S-Mamba, PowerMamba, and TimeMachine consistently outperform vanilla Transformers ($0.003200$ to $0.003247$ vs $0.003087-0.003681$), demonstrating high efficiency in continuous-time representation of EV load profiles.
 3. **Channel Independence Bottleneck**:
    - PatchTST's Channel Independence (CI) treats all 28 features separately. Because EV aggregate charging is fundamentally driven by weather, temperature, and day-of-week correlations, CI degrades performance significantly ($0.005555$ vs $0.003029$ for iTransformer).
+
+---
+
+## 4. Cross-Dataset Transferability & Re-tuning Protocol
+
+### 4.1 Non-Transferability Invariant
+- **Invariant**: **Hyperparameter configurations must never be transferred blindly across datasets.**
+- **Root Cause**: Differences in sample volume, signal-to-noise ratio, diurnal/seasonal frequency, and feature dimensionality alter the optimization landscape. A configuration optimized for Caltech ACN (e.g., $d=32$ for iTransformer or high dropout on noisy weather covariates) risks severe underfitting on larger industrial datasets (e.g. Traffic/Electricity) or severe overfitting on small microgrids.
+
+### 4.2 Practical Re-tuning Strategy (Compute-Efficient)
+1. **Warm Start Baseline**:
+   - Use the existing best parameter set as Trial 0 (or baseline evaluation) to establish the initial performance benchmark.
+2. **Focused Parameter Subset (High-Impact Tuning)**:
+   - In compute-constrained environments, do not run full broad search from scratch. Focus on the high-impact subset:
+     - **Tier 1 (Mandatory Re-tune)**: `learning_rate`, `dropout`, `batch_size`, `weight_decay`.
+     - **Tier 2 (Structural Priors)**: Structural dimensions like layer count ($L$) and attention head ratios ($d_k$) can typically be transferred from canonical setups.
+3. **Optuna vs Academic Benchmark Protocol**:
+   - Academic benchmark papers (Informer, Autoformer, PatchTST) use rigid focused grid search primarily due to GPU budget constraints across dozens of baselines and fair comparison requirements.
+   - Production and competitive workflows (Industry / Kaggle / Nixtla) mandate **Optuna Bayesian Optimization (TPE + Median/Hyperband Pruning)** combined with the $\epsilon$-tolerance Parsimony Rule to actively discover non-trivial hyperparameter interactions while rejecting fragile validation artifacts.

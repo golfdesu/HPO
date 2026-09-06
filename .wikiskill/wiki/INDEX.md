@@ -9,6 +9,7 @@ Constructed under the principles of **Google Research: WikiSkill** (*arXiv:2608.
 
 | Article | Topic | Purpose |
 |:---|:---|:---|
+| [`workspace_and_thesis_linkage.md`](workspace_and_thesis_linkage.md) | **3-Pillar Research Ecosystem** | Architecture linking Obsidian Thesis, HPO repo, and Model Benchmark repo |
 | [`erawan_hpc_playbook.md`](erawan_hpc_playbook.md) | **Erawan HPC & H100 Architecture** | Rules, flags, and hard limitations of Erawan (`compute4`) |
 | [`model_pitfalls.md`](model_pitfalls.md) | **Model Architecture Pitfalls** | Bugs, overparameterization traps, and layer restrictions |
 | [`optimization_guide.md`](optimization_guide.md) | **High-Throughput Playbook** | TF32, pinned memory, streams, and pre-vectorization |
@@ -22,4 +23,4 @@ Constructed under the principles of **Google Research: WikiSkill** (*arXiv:2608.
 - **Preflight Verifier**: [`skills/scripts/preflight_check.py`](../skills/scripts/preflight_check.py)
   Scans all model files before launch, catching prohibited patterns (e.g. `torch.compile`, VRAM caps, LightGBM CUDA flags).
 - **Gating Validator**: [`skills/scripts/validate_gating.py`](../skills/scripts/validate_gating.py)
-  Enforces rollback if any proposed modification degrades performance or breaks paper compliance.\n
+  Enforces rollback if any proposed modification degrades performance or breaks paper compliance.
