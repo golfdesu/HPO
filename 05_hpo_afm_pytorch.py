@@ -122,14 +122,6 @@ class PositionalEmbedding(nn.Module):
         positions = torch.arange(0, x.size(1), device=x.device)
         return x + self.pos_emb(positions)
 
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.01):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            return x + torch.randn_like(x) * self.stddev
-        return x
 # --- Model Definition ---
 # Helper: Series Decomposition Layer (Autoformer Core Component)
 class SeriesDecomp(nn.Module):

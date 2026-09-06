@@ -128,19 +128,13 @@ class PositionalEmbedding(nn.Module):
         positions = torch.arange(0, x.size(1), device=x.device)
         return x + self.pos_emb(positions)
 
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.01):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            return x + torch.randn_like(x) * self.stddev
-        return x
 # --- Model Definition ---
 class EncoderDecoderTransformer(nn.Module):
     def __init__(self, lookback, num_features, horizon, d_model=64, num_heads=4, d_ff=128, num_layers=2, dropout_rate=0.1):
         super().__init__()
+        self.lookback = lookback
         self.horizon = horizon
+        self.d_model = d_model
         self.enc_proj = nn.Linear(num_features, d_model)
         self.pos_emb_enc = PositionalEmbedding(lookback, d_model)
         self.drop_enc = nn.Dropout(dropout_rate)
@@ -155,16 +149,15 @@ class EncoderDecoderTransformer(nn.Module):
         self.norm2_dec = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(num_layers)])
         self.ffn_dec = nn.ModuleList([nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Dropout(dropout_rate), nn.Linear(d_ff, d_model), nn.Dropout(dropout_rate)) for _ in range(num_layers)])
         self.norm3_dec = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(num_layers)])
-        self.fc1 = nn.Linear(d_model * horizon, 128)
-        self.drop1 = nn.Dropout(dropout_rate)
-        self.fc2 = nn.Linear(128, 64)
-        self.drop2 = nn.Dropout(dropout_rate)
-        self.out_proj = nn.Linear(64, horizon)
+        # Canonical token-wise linear projection head (Linear(d_model, 1))
+        self.out_head = nn.Linear(d_model, 1)
+
     def forward(self, x):
         bs = x.size(0)
         enc_out = self.encoder(self.drop_enc(self.pos_emb_enc(self.enc_proj(x))))
-        dec_start = enc_out[:, -1, :].unsqueeze(1).repeat(1, self.horizon, 1)
-        dec = self.drop_dec(self.pos_emb_dec(dec_start))
+        # Zero placeholder query tokens for decoder horizon (Vaswani et al., 2017)
+        dec_in = torch.zeros(bs, self.horizon, self.d_model, device=x.device)
+        dec = self.drop_dec(self.pos_emb_dec(dec_in))
         c_mask = torch.triu(torch.full((self.horizon, self.horizon), float('-inf'), device=x.device), diagonal=1)
         for i in range(self.num_layers):
             da, _ = self.dec_attn[i](dec, dec, dec, attn_mask=c_mask)
@@ -172,8 +165,8 @@ class EncoderDecoderTransformer(nn.Module):
             ca, _ = self.cross_attn[i](dec, enc_out, enc_out)
             dec = self.norm2_dec[i](dec + self.drop_dec(ca))
             dec = self.norm3_dec[i](dec + self.ffn_dec[i](dec))
-        h = self.drop2(F.relu(self.fc2(self.drop1(F.relu(self.fc1(dec.reshape(bs, -1)))))))
-        return self.out_proj(h)
+        out = self.out_head(dec).squeeze(-1)
+        return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):

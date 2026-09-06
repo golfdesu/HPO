@@ -122,14 +122,6 @@ class PositionalEmbedding(nn.Module):
         positions = torch.arange(0, x.size(1), device=x.device)
         return x + self.pos_emb(positions)
 
-class GaussianNoise(nn.Module):
-    def __init__(self, stddev=0.01):
-        super().__init__()
-        self.stddev = stddev
-    def forward(self, x):
-        if self.training and self.stddev > 0:
-            return x + torch.randn_like(x) * self.stddev
-        return x
 # --- Model Definition ---
 # Helper: Distillation Layer (Informer Core Component)
 class DistillLayer(nn.Module):
@@ -197,6 +189,37 @@ class ProbAttention(nn.Module):
         context.scatter_(2, M_top_expanded, V_reduce)
         return context.permute(0, 2, 1, 3).contiguous(), None
 
+class FullAttention(nn.Module):
+    """
+    Canonical Full Attention for Informer Decoder Cross-Attention (Zhou et al., AAAI 2021).
+    """
+    def __init__(self, scale=None, attention_dropout=0.1):
+        super().__init__()
+        self.scale = scale
+        self.dropout = nn.Dropout(attention_dropout)
+
+    def forward(self, queries, keys, values, attn_mask=None):
+        B, L_Q, H, D = queries.shape
+        _, L_K, _, _ = keys.shape
+        queries_p = queries.permute(0, 2, 1, 3)  # [B, H, L_Q, D]
+        keys_p = keys.permute(0, 2, 1, 3)        # [B, H, L_K, D]
+        values_p = values.permute(0, 2, 1, 3)    # [B, H, L_K, D]
+        scale = self.scale or 1.0 / np.sqrt(D)
+        scores = torch.matmul(queries_p, keys_p.transpose(-2, -1)) * scale  # [B, H, L_Q, L_K]
+        if attn_mask is not None:
+            if isinstance(attn_mask, torch.Tensor):
+                if attn_mask.dim() == 2:
+                    scores = scores.masked_fill(attn_mask[None, None, :, :].bool(), -1e9)
+                elif attn_mask.dim() == 3:
+                    scores = scores.masked_fill(attn_mask.unsqueeze(1).bool(), -1e9)
+                else:
+                    scores = scores.masked_fill(attn_mask.bool(), -1e9)
+            elif hasattr(attn_mask, 'mask'):
+                scores = scores.masked_fill(attn_mask.mask.bool(), -1e9)
+        attn = torch.softmax(scores, dim=-1)
+        out = torch.matmul(self.dropout(attn), values_p)  # [B, H, L_Q, D]
+        return out.permute(0, 2, 1, 3).contiguous(), None
+
 class ProbSparseAttentionLayer(nn.Module):
     def __init__(self, attention, d_model, n_heads):
         super().__init__()
@@ -248,9 +271,11 @@ class InformerModel(nn.Module):
         self.pos_emb_dec = PositionalEmbedding(dec_seq_len, d_model)
         self.dec_attn = ProbSparseAttentionLayer(ProbAttention(factor=5, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
         self.norm1_dec = nn.LayerNorm(d_model)
-        self.cross_attn = ProbSparseAttentionLayer(ProbAttention(factor=5, attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
+        # Canonical FullAttention for decoder cross-attention (Zhou et al., AAAI 2021)
+        self.cross_attn = ProbSparseAttentionLayer(FullAttention(attention_dropout=dropout_rate), d_model=d_model, n_heads=num_heads)
         self.norm2_dec = nn.LayerNorm(d_model)
-        self.out_head = nn.Linear(d_model * horizon, horizon)
+        # Canonical token-wise linear projection head (Linear(d_model, 1))
+        self.out_head = nn.Linear(d_model, 1)
 
     def forward(self, x):
         # x: [batch, lookback, num_features]
@@ -281,7 +306,7 @@ class InformerModel(nn.Module):
         dec = self.norm2_dec(dec + self.drop(cross_attn_out))
 
         dec_target = dec[:, -self.horizon:, :]
-        out = self.out_head(dec_target.reshape(batch_size, -1))
+        out = self.out_head(dec_target).squeeze(-1)
         return out
 
 # --- Optuna Objective (FULL 100% Data Search) ---

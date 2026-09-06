@@ -64,77 +64,127 @@ if device.type == 'cuda':
     torch.backends.cudnn.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
 
-# 1. Univariate Data Loading & Preprocessing
+# ---------------------------------------------------------
+# 1. Multivariate Data Loading & Preprocessing (C=28)
 # ---------------------------------------------------------
 data_path = '../data_cleaned/acn_caltech_ready2.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
+df = df.drop(columns=['prcp', 'tempDiff_48', 'cldc'], errors='ignore')
 
-# Univariate input per DLinear paper (Zeng et al., AAAI 2023)
-y = df['kWhDelivered'].astype('float32')
+cols = [c for c in df.columns if c != 'kWhDelivered']
+for col in df.columns:
+    df[col] = df[col].astype('float32')
+
+X = df[cols]
+y = df['kWhDelivered']
 
 train_len = int(len(df) * 0.6)
 val_len = int(len(df) * 0.2)
 
-y_train = y[:train_len]
-y_val   = y[train_len : train_len + val_len]
+X_train = X[:train_len];      X_val = X[train_len : train_len + val_len]
+y_train = y[:train_len];      y_val = y[train_len : train_len + val_len]
+
+scaler_X = MinMaxScaler()
+X_train_scaled = scaler_X.fit_transform(X_train)
+X_val_scaled   = scaler_X.transform(X_val)
 
 scaler_y = MinMaxScaler()
 y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1)).flatten()
 y_val_scaled   = scaler_y.transform(y_val.values.reshape(-1, 1)).flatten()
 
+# DLinear multivariate (Zeng et al., AAAI 2023): channel-independent (individual=False)
+# Every input channel forecasts its own future with shared weights; target channel is read at TARGET_CH_IDX.
+TARGET_CH_IDX = X_train_scaled.shape[1]  # 27
+X_train_scaled = np.concatenate([X_train_scaled, y_train_scaled.reshape(-1, 1)], axis=1)
+X_val_scaled   = np.concatenate([X_val_scaled,   y_val_scaled.reshape(-1, 1)], axis=1)
+print(f"Dataset Loaded! Features: {X_train_scaled.shape[1]} (Target appended at index {TARGET_CH_IDX})")
+
 LOOKBACK = 96
 HORIZON = 48
 
-def create_windowed_tensors(y_data, lookback, horizon):
+def create_windowed_tensors(X_data, y_data, lookback, horizon):
     X_seq, y_seq = [], []
-    for i in range(len(y_data) - lookback - horizon + 1):
-        X_seq.append(y_data[i : i + lookback])
+    for i in range(len(X_data) - lookback - horizon + 1):
+        X_seq.append(X_data[i : i + lookback])
         y_seq.append(y_data[i + lookback : i + lookback + horizon])
     X_t = torch.tensor(np.array(X_seq, dtype=np.float32))
     y_t = torch.tensor(np.array(y_seq, dtype=np.float32))
     return X_t, y_t
 
-print("Pre-building univariate sequence tensors...")
-X_train_t, y_train_t = create_windowed_tensors(y_train_scaled, LOOKBACK, HORIZON)
-X_val_t,   y_val_t   = create_windowed_tensors(y_val_scaled,   LOOKBACK, HORIZON)
+print("Pre-building sequence tensors...")
+X_train_t, y_train_t = create_windowed_tensors(X_train_scaled, y_train_scaled, LOOKBACK, HORIZON)
+X_val_t,   y_val_t   = create_windowed_tensors(X_val_scaled,   y_val_scaled,   LOOKBACK, HORIZON)
 
 train_dataset = TensorDataset(X_train_t, y_train_t)
 val_dataset   = TensorDataset(X_val_t, y_val_t)
-print(f"Dataset Loaded! Train Tensors: {X_train_t.shape}, Val Tensors: {X_val_t.shape}")
+print(f"Train Tensors: {X_train_t.shape}, Val Tensors: {X_val_t.shape}")
 
 # ---------------------------------------------------------
 # 2. DLinear Architecture (Zeng et al., AAAI 2023)
 # ---------------------------------------------------------
 class SeriesDecomp(nn.Module):
+    """
+    Moving average series decomposition with replicate edge padding (Wu et al., NeurIPS 2021; Zeng et al., AAAI 2023).
+    """
     def __init__(self, kernel_size=25):
         super().__init__()
         self.kernel_size = kernel_size
-        self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
+        self.avg_pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=0)
 
     def forward(self, x):
-        x_tr = x.unsqueeze(1)
-        trend = self.avg_pool(x_tr).squeeze(1)
-        if trend.size(1) > x.size(1):
-            trend = trend[:, :x.size(1)]
-        elif trend.size(1) < x.size(1):
-            trend = F.pad(trend, (0, x.size(1) - trend.size(1)))
+        # x shape: [batch, seq_len, channels]
+        pad_front = (self.kernel_size - 1) // 2
+        pad_end = self.kernel_size - 1 - pad_front
+        front = x[:, :1, :].repeat(1, pad_front, 1)
+        end = x[:, -1:, :].repeat(1, pad_end, 1)
+        x_pad = torch.cat([front, x, end], dim=1)
+        trend = self.avg_pool(x_pad.permute(0, 2, 1)).permute(0, 2, 1)
         seasonal = x - trend
         return seasonal, trend
 
 class DLinear(nn.Module):
-    def __init__(self, lookback, horizon, kernel_size=25):
+    """
+    DLinear (Zeng et al., AAAI 2023)
+    Channel-Independent (individual=False) with shared weights across all channels.
+    Forecasts all channels and reads out the target load channel at target_idx.
+    """
+    def __init__(self, lookback, horizon, kernel_size=25, individual=False, num_features=28, target_idx=27):
         super().__init__()
+        self.lookback = lookback
+        self.horizon = horizon
         self.decomp = SeriesDecomp(kernel_size=kernel_size)
-        self.linear_seasonal = nn.Linear(lookback, horizon)
-        self.linear_trend = nn.Linear(lookback, horizon)
+        self.individual = individual
+        self.num_features = num_features
+        self.target_idx = target_idx
+
+        if self.individual:
+            self.Linear_Seasonal = nn.ModuleList([nn.Linear(lookback, horizon) for _ in range(num_features)])
+            self.Linear_Trend = nn.ModuleList([nn.Linear(lookback, horizon) for _ in range(num_features)])
+        else:
+            self.Linear_Seasonal = nn.Linear(lookback, horizon)
+            self.Linear_Trend = nn.Linear(lookback, horizon)
 
     def forward(self, x):
+        # x: [batch, lookback, channels]
         seasonal, trend = self.decomp(x)
-        seasonal_out = self.linear_seasonal(seasonal)
-        trend_out = self.linear_trend(trend)
-        return seasonal_out + trend_out
+        seasonal_perm = seasonal.permute(0, 2, 1)  # [batch, channels, lookback]
+        trend_perm = trend.permute(0, 2, 1)        # [batch, channels, lookback]
+
+        if self.individual:
+            seasonal_out = torch.zeros(x.size(0), self.num_features, self.horizon, device=x.device, dtype=x.dtype)
+            trend_out = torch.zeros(x.size(0), self.num_features, self.horizon, device=x.device, dtype=x.dtype)
+            for i in range(self.num_features):
+                seasonal_out[:, i, :] = self.Linear_Seasonal[i](seasonal_perm[:, i, :])
+                trend_out[:, i, :] = self.Linear_Trend[i](trend_perm[:, i, :])
+        else:
+            seasonal_out = self.Linear_Seasonal(seasonal_perm)  # [batch, channels, horizon]
+            trend_out = self.Linear_Trend(trend_perm)            # [batch, channels, horizon]
+
+        out = seasonal_out + trend_out  # [batch, channels, horizon]
+        target_ch = self.target_idx if x.size(-1) > 1 else 0
+        return out[:, target_ch, :]     # [batch, horizon]
 
 # ---------------------------------------------------------
 # 3. Optuna Objective
@@ -148,7 +198,7 @@ def objective(trial):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True if device.type=='cuda' else False)
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=True if device.type=='cuda' else False)
 
-    model = DLinear(lookback=LOOKBACK, horizon=HORIZON, kernel_size=kernel_size).to(device)
+    model = DLinear(lookback=LOOKBACK, horizon=HORIZON, kernel_size=kernel_size, num_features=X_train_scaled.shape[1], target_idx=TARGET_CH_IDX).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
 

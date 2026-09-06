@@ -44,10 +44,11 @@ PAPER_SPECS = {
     "01": {
         "name": "Vanilla Transformer",
         "paper": "Vaswani et al. (NIPS 2017) - Attention Is All You Need",
-        "key_mechanisms": ["Multi-Head Self-Attention", "Positional Encoding", "Residual LayerNorm"],
+        "key_mechanisms": ["Multi-Head Self-Attention", "Sinusoidal Positional Encoding", "Residual LayerNorm"],
         "checks": [
             (lambda c: "TransformerEncoder" in c or "MultiheadAttention" in c, "Uses multi-head self-attention"),
             (lambda c: "LayerNorm" in c or "TransformerEncoder" in c, "Uses LayerNorm residual connections"),
+            (lambda c: "torch.sin" in c and "register_buffer" in c, "Sinusoidal Positional Encoding buffer"),
         ]
     },
     "02": {
@@ -56,28 +57,45 @@ PAPER_SPECS = {
         "key_mechanisms": ["Causal Masked Self-Attention", "Autoregressive Constraint"],
         "checks": [
             ("triu", "Applies upper triangular causal mask"),
-        ]
+        ],
+        "bug_detector": lambda code: (
+            ["CRITICAL DEVIATION: Forecast horizon (H=48) is predicted simultaneously via generic MLP head rather than autoregressive causal decoding; causal mask is applied strictly across lookback history (L=96)."]
+            if ("out_proj = nn.Linear" in code and "torch.triu" in code and "horizon" in code and "dec_in" not in code) else []
+        )
     },
     "03": {
         "name": "Encoder-Decoder",
         "paper": "Vaswani et al. (NIPS 2017) - Sequence to Sequence Cross-Attention",
-        "key_mechanisms": ["Cross-Attention", "Separate Encoder & Decoder Stacks"],
+        "key_mechanisms": ["Cross-Attention", "Zero-Placeholder Queries", "Token-Wise Projection Head"],
         "checks": [
             ("MultiheadAttention", "Cross-attention mechanism"),
-        ]
+            (lambda c: "out_head = nn.Linear(d_model, 1)" in c or ("out_head" in c and "squeeze(-1)" in c), "Canonical token-wise linear projection head (Linear(d_model, 1))"),
+            (lambda c: "zeros" in c and "dec_in" in c, "Zero placeholder decoder query initialization"),
+        ],
+        "bug_detector": lambda code: (
+            (["CRITICAL BUG: Decoder query tokens are repeated copies of last encoder step instead of zero placeholders!"]
+             if ("unsqueeze(1).repeat(1, self.horizon, 1)" in code and "dec_start" in code) else [])
+            + (["CRITICAL BUG: Parameter bloat in flattened head (Linear(d_model * horizon, ...) creating 786K params) instead of token-wise Linear(d_model, 1)!"]
+               if ("head_fc1 = nn.Linear(d_model * horizon" in code or "Linear(d_model * horizon" in code) else [])
+        )
     },
     "04": {
         "name": "Informer",
         "paper": "Zhou et al. (AAAI 2021) - Informer: Beyond Efficient Transformer",
-        "key_mechanisms": ["ProbSparse Attention", "Distillation Layer"],
+        "key_mechanisms": ["ProbSparse Attention", "FullAttention Cross-Attention", "Distillation Layer", "Token-Wise Projection Head"],
         "checks": [
             ("ProbAttention", "Implements ProbSparse Attention"),
+            ("FullAttention", "Implements FullAttention for decoder cross-attention (Zhou et al., AAAI 2021)"),
             ("MaxPool1d", "Implements distilling layer with MaxPool1d"),
+            (lambda c: "out_head = nn.Linear(d_model, 1)" in c or ("out_head" in c and "squeeze(-1)" in c), "Canonical token-wise linear projection head"),
         ],
         "bug_detector": lambda code: (
-            ["CRITICAL BUG: ProbAttention uses .sum(dim=-2) instead of .mean(dim=-2) for non-selected keys!"]
-            if ("values_p.sum(dim=-2" in code or ".sum(dim=-2" in code and "ProbAttention" in code and "mean(dim=-2" not in code)
-            else []
+            (["CRITICAL BUG: ProbAttention uses .sum(dim=-2) instead of .mean(dim=-2) for non-selected keys!"]
+             if ("values_p.sum(dim=-2" in code or (".sum(dim=-2" in code and "ProbAttention" in code and "mean(dim=-2" not in code)) else [])
+            + (["CRITICAL BUG: Informer cross-attention uses ProbAttention instead of FullAttention (Zhou et al., AAAI 2021)!"]
+               if ("cross_attn = ProbSparseAttentionLayer(ProbAttention" in code) else [])
+            + (["CRITICAL BUG: Output projection uses flattened Linear(d_model * horizon, horizon) head causing parameter bloat instead of canonical token-wise Linear(d_model, 1)!"]
+               if ("out_head = nn.Linear(d_model * horizon" in code) else [])
         )
     },
     "05": {
@@ -90,7 +108,7 @@ PAPER_SPECS = {
         ],
         "bug_detector": lambda code: (
             ["WARNING: SeriesDecomp uses zero padding instead of replicate border padding."]
-            if ("padding=kernel_size // 2" in code and "replicate" not in code and "repeat" not in code)
+            if ("padding=kernel_size // 2" in code and "replicate" not in code and "repeat" not in code and "x_pad" not in code)
             else []
         )
     },
@@ -155,28 +173,49 @@ PAPER_SPECS = {
     "11": {
         "name": "DLinear",
         "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-        "key_mechanisms": ["Series Decomposition", "1-Layer Linear on Trend", "1-Layer Linear on Seasonal"],
+        "key_mechanisms": ["Series Decomposition", "1-Layer Linear on Trend", "1-Layer Linear on Seasonal", "Multivariate Channel Independence (C=28)"],
         "checks": [
             ("Linear_Trend", "1-layer linear trend head"),
             ("Linear_Seasonal", "1-layer linear seasonal head"),
-        ]
+            (lambda c: "TARGET_CH_IDX" in c or "target_idx" in c, "Multivariate Channel Independence input (C=28)"),
+            (lambda c: "replicate" in c or "repeat" in c or "x_pad" in c, "Replicate border padding in SeriesDecomp"),
+        ],
+        "bug_detector": lambda code: (
+            (["CRITICAL DEVIATION: DLinear is univariate, dropping all 27 exogenous features. Zeng et al. (AAAI 2023) supports multivariate inputs via Channel Independence."]
+             if ("y = df['kWhDelivered']" in code and "X = df[cols]" not in code and "cols" not in code) else [])
+            + (["WARNING: SeriesDecomp uses zero padding instead of replicate border padding."]
+               if ("padding=kernel_size // 2" in code and "replicate" not in code and "repeat" not in code and "x_pad" not in code) else [])
+        )
     },
     "12": {
         "name": "NLinear",
         "paper": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-        "key_mechanisms": ["Last-value Instance Normalization (X - X[-1])", "Single Linear Head"],
+        "key_mechanisms": ["Last-value Instance Normalization (X - X[-1])", "Single Linear Head", "Multivariate Channel Independence (C=28)"],
         "checks": [
-            (lambda c: "x[:, -1:]" in c or "- last" in c or "- x[:, -1" in c or "x - x[:" in c, "Subtracts sequence tail value (Instance Normalization)"),
-        ]
+            (lambda c: "x[:, -1:]" in c or "- last" in c or "- x[:, -1" in c or "x - x[:" in c or "seq_last" in c, "Subtracts sequence tail value (Instance Normalization)"),
+            (lambda c: "TARGET_CH_IDX" in c or "target_idx" in c, "Multivariate Channel Independence input (C=28)"),
+        ],
+        "bug_detector": lambda code: (
+            ["CRITICAL DEVIATION: NLinear is univariate, dropping all 27 exogenous features. Zeng et al. (AAAI 2023) supports multivariate inputs via Channel Independence."]
+            if ("y = df['kWhDelivered']" in code and "X = df[cols]" not in code and "cols" not in code) else []
+        )
     },
     "13": {
         "name": "S-Mamba",
         "paper": "Wang et al. (2024); Gu & Dao (2023) - S-Mamba / Mamba: Linear-Time Sequence Modeling",
-        "key_mechanisms": ["Bidirectional Selective SSM", "O(L) Complexity"],
+        "key_mechanisms": ["Bidirectional Selective SSM", "Cross-Variate Scan", "RevIN Instance Normalization"],
         "checks": [
             ("PureSelectiveSSM", "Selective State Space Model core"),
-            ("flip", "Bidirectional temporal scan"),
-        ]
+            ("flip", "Bidirectional SSM scan"),
+            ("RevIN", "RevIN instance normalization (Kim et al., 2022; Wang et al., 2024)"),
+            (lambda c: "enc_proj = nn.Linear(lookback" in c or "x_tokens = x" in c or "transpose(1, 2)" in c, "Inverted variate tokens projection (Wang et al., 2024)"),
+        ],
+        "bug_detector": lambda code: (
+            (["CRITICAL DEVIATION: Scans sequentially along time steps instead of inverted variate tokens as specified in S-Mamba paper (Wang et al., 2024)!"]
+             if ("feature_proj = nn.Linear(num_features" in code or "last_feat = x[:, -1, :]" in code) else [])
+            + (["CRITICAL DEVIATION: Generic MLP head with temporal pooling instead of canonical token-wise projection to horizon!"]
+               if ("head_fc1 = nn.Linear(d_model * 2" in code or "avg_feat = torch.mean" in code) else [])
+        )
     },
     "14": {
         "name": "PowerMamba",
@@ -186,7 +225,11 @@ PAPER_SPECS = {
             ("SeriesDecomp", "Moving average series decomposition"),
             ("ssm_seasonal", "Selective SSM on seasonal component"),
             ("linear_trend", "Linear projection on trend component"),
-        ]
+        ],
+        "bug_detector": lambda code: (
+            ["CRITICAL DEVIATION: Fails to implement canonical PowerMamba (Menati et al., 2024): lacks dual-path iMamba (transposed variate scan), concatenated [T; S] fixed embedding, and composite fusion head; implemented as shortcut (SeriesDecomp + 1D SSM + Linear + MLP head)."]
+            if ("imamba" not in code.lower() and "revin" not in code.lower()) else []
+        )
     },
     "15": {
         "name": "TimeMachine",
@@ -195,7 +238,11 @@ PAPER_SPECS = {
         "checks": [
             ("time_ssm", "Cross-time Mamba branch"),
             ("channel_ssm", "Cross-channel/variate Mamba branch"),
-        ]
+        ],
+        "bug_detector": lambda code: (
+            ["CRITICAL DEVIATION: Fails to implement canonical TimeMachine (Ahamed & Cheng, 2024): lacks 2-stage multi-scale embedding (n1 > n2) and quadruple-Mamba pyramid; implemented as single-scale sum of 2 time SSMs + 2 channel SSMs with MLP head."]
+            if ("multiscale" not in code.lower() and "scale2" not in code.lower() and "coarse" not in code.lower()) else []
+        )
     },
     "16": {
         "name": "S4D Baseline",
@@ -206,9 +253,10 @@ PAPER_SPECS = {
             ("rfft", "FFT circular convolution"),
         ],
         "bug_detector": lambda code: (
-            ["CRITICAL BUG: nn.Linear(d_model * 2, d_model) dimension mismatch with chunk(2) in GLU FFN!"]
-            if ("nn.Linear(d_model * 2, d_model)" in code and "linear2" in code and "chunk(2" in code)
-            else []
+            (["CRITICAL BUG: nn.Linear(d_model * 2, d_model) dimension mismatch with chunk(2) in GLU FFN!"]
+             if ("nn.Linear(d_model * 2, d_model)" in code and "linear2" in code and "chunk(2" in code) else [])
+            + (["CRITICAL DEVIATION: Generic 2-layer MLP head with temporal average pooling instead of canonical sequence projection."]
+               if ("torch.mean(x, dim=1)" in code and "head_fc1" in code) else [])
         )
     },
     "17": {
@@ -317,6 +365,18 @@ def audit_script(filepath):
         detected_bugs = spec["bug_detector"](code)
         deviations.extend(detected_bugs)
 
+    # Golden Rule of Benchmark Fidelity: Baselines 01-31 must not have foreign artifacts
+    if prefix_id != "00":
+        has_noise_artifact = False
+        if "class GaussianNoise" in code:
+            deviations.append("CRITICAL DEVIATION: Foreign artifact 'class GaussianNoise' detected in baseline (violates benchmark canonical purity)!")
+            has_noise_artifact = True
+        if re.search(r"self\.noise_stddev\s*=\s*", code) or re.search(r"noise_stddev\s*:\s*float", code) or re.search(r",\s*noise_stddev\s*=", code):
+            deviations.append("CRITICAL DEVIATION: Foreign parameter 'noise_stddev' detected in baseline (violates benchmark canonical purity)!")
+            has_noise_artifact = True
+        if not has_noise_artifact:
+            checked_mechanisms.append("Canonical baseline purity (no foreign noise/jitter artifacts)")
+
     status = "ALIGNED" if not deviations else "DEVIATED"
     return {
         "file": filename,
@@ -336,8 +396,9 @@ def run_audit(target_dir, state_filename):
     py_files = sorted(glob.glob(os.path.join(target_dir, "[0-9][0-9]_*.py")))
     state = {
         "last_updated": datetime.datetime.now().isoformat(),
+        "audit_scope": "Models 00-24 Comprehensive Literature & Code Audit",
         "target_dir": target_dir,
-        "total_models_scanned": len(py_files),
+        "total_models_scanned": 0,
         "summary": {
             "fully_aligned": 0,
             "deviated_or_bugs": 0
@@ -364,13 +425,21 @@ def run_audit(target_dir, state_filename):
         dev_note = f"({dev_count} issues: {res['deviations'][0][:45]}...)" if dev_count > 0 else ""
         print(f"{status_tag:<10} {filename:<32} | {res['model_name']:<20} {dev_note}")
 
+    state["total_models_scanned"] = len(state["results"])
+
     state_path = os.path.join(target_dir, state_filename)
     with open(state_path, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=4)
 
+    configs_dir = os.path.join(target_dir, "configs")
+    if os.path.exists(configs_dir):
+        config_state_path = os.path.join(configs_dir, state_filename)
+        with open(config_state_path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=4)
+
     print("\n" + "=" * 70)
     print(f"[OK] Paper Alignment State Saved: {state_path}")
-    print(f"[SUMMARY] Fully Aligned: {state['summary']['fully_aligned']}/{len(py_files)} | Deviations/Bugs: {state['summary']['deviated_or_bugs']}/{len(py_files)}")
+    print(f"[SUMMARY] Fully Aligned: {state['summary']['fully_aligned']}/{state['total_models_scanned']} | Deviations/Bugs: {state['summary']['deviated_or_bugs']}/{state['total_models_scanned']}")
     print("=" * 70 + "\n")
     return state
 

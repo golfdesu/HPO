@@ -114,13 +114,21 @@ X_val_t, y_val_t     = create_windowed_tensors(X_val_scaled, y_val_scaled, LOOKB
 train_dataset = TensorDataset(X_train_t, y_train_t)
 val_dataset   = TensorDataset(X_val_t, y_val_t)
 
+# Sinusoidal Positional Encoding (Vaswani et al., NIPS 2017, Sec 3.5)
+# Paper-faithful: fixed sinusoids instead of learned embedding
 class PositionalEmbedding(nn.Module):
     def __init__(self, seq_len, d_model):
         super().__init__()
-        self.pos_emb = nn.Embedding(seq_len, d_model)
+        pe = torch.zeros(seq_len, d_model)
+        position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term[:pe[:, 1::2].size(1)])
+        self.register_buffer('pe', pe.unsqueeze(0))  # [1, seq_len, d_model]
+
     def forward(self, x):
-        positions = torch.arange(0, x.size(1), device=x.device)
-        return x + self.pos_emb(positions)
+        # x shape: [batch, seq_len, d_model]
+        return x + self.pe[:, :x.size(1), :]
 
 # --- Model Definition (Vaswani et al., NeurIPS 2017) ---
 class BaselineTransformer(nn.Module):
