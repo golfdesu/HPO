@@ -277,7 +277,7 @@ class MultiVariableFusionModule(nn.Module):
         self.dropout    = nn.Dropout(dropout_rate)
 
     def forward(self, load_seq, ext_features):
-        B, L, F = ext_features.shape
+        B, L, num_feats = ext_features.shape
 
         l_emb = self.load_q_proj(load_seq)
         l_q = self.load_pool(l_emb.mean(dim=1))
@@ -290,10 +290,10 @@ class MultiVariableFusionModule(nn.Module):
         scores = torch.bmm(l_q.unsqueeze(1), feat_k_pooled.transpose(1, 2)).squeeze(1) / math.sqrt(self.d_model)
         sigma_w = F.softmax(scores, dim=-1)
 
-        if self.base_weights.shape[0] == F:
+        if self.base_weights.shape[0] == num_feats:
             base_w = self.base_weights
         else:
-            base_w = torch.ones(F, device=ext_features.device, dtype=ext_features.dtype) / max(F, 1)
+            base_w = torch.ones(num_feats, device=ext_features.device, dtype=ext_features.dtype) / max(num_feats, 1)
         w_tilde = base_w.unsqueeze(0) + sigma_w
         w_expanded = w_tilde.unsqueeze(-1).unsqueeze(-1)
         E = torch.sum(w_expanded * feat_v, dim=1)
