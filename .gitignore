@@ -45,6 +45,7 @@
 !configs/
 !configs/**
 !selected_production_params.json
+!run_hpo_all_models.sbatch
 !.agents/
 !.agents/**
 !.wikiskill/
