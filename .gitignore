@@ -34,7 +34,6 @@
 !29_hpo_segrnn_pytorch.py
 !30_hpo_nstransformer_pytorch.py
 !31_hpo_scinet_pytorch.py
-!*_best_params.json
 
 # 3. Explicitly track metadata, configs, docs
 !.gitignore
@@ -45,9 +44,6 @@
 !CLAUDE.md
 !configs/
 !configs/**
-!best_params/
-!best_params/**
-!*.sbatch
 !selected_production_params.json
 !.agents/
 !.agents/**
