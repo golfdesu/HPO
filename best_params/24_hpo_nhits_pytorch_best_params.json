@@ -1,155 +1,155 @@
 {
     "model_name": "24_hpo_nhits_pytorch",
     "search_mode": "FULL_100_PERCENT",
-    "best_val_loss": 0.0030563851973467037,
+    "best_val_loss": 0.003159498543364629,
     "best_params": {
         "hidden_dim": 256,
-        "n_layers": 2,
-        "pooling_config": "coarse_16_8_2",
-        "dropout": 0.2,
-        "learning_rate": 0.0007095018368166803,
-        "weight_decay": 0.0002513325947340768,
-        "batch_size": 128
+        "n_layers": 3,
+        "pooling_config": "standard_8_4_1",
+        "dropout": 0.05,
+        "learning_rate": 0.00011058500546306239,
+        "weight_decay": 1.0327089770662047e-06,
+        "batch_size": 256
     },
     "top_10_trials": [
         {
             "rank": 1,
-            "trial_number": 45,
-            "val_loss": 0.0030563851973467037,
+            "trial_number": 13,
+            "val_loss": 0.003159498543364629,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.2,
-                "learning_rate": 0.0007095018368166803,
-                "weight_decay": 0.0002513325947340768,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00011058500546306239,
+                "weight_decay": 1.0327089770662047e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 2,
-            "trial_number": 49,
-            "val_loss": 0.0031380820661210096,
+            "trial_number": 44,
+            "val_loss": 0.0031603184701289987,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.2,
-                "learning_rate": 0.001001919029410599,
-                "weight_decay": 0.0006126115518153437,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00011282290731222868,
+                "weight_decay": 2.704307444161729e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 3,
-            "trial_number": 48,
-            "val_loss": 0.0031397747443131585,
+            "trial_number": 14,
+            "val_loss": 0.003161376015685997,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.2,
-                "learning_rate": 0.0010005027626765223,
-                "weight_decay": 0.0005058339356918776,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00010795447734114429,
+                "weight_decay": 1.7032271361691542e-05,
+                "batch_size": 256
             }
         },
         {
             "rank": 4,
-            "trial_number": 47,
-            "val_loss": 0.0031420561011697426,
+            "trial_number": 32,
+            "val_loss": 0.003161725835947491,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.2,
-                "learning_rate": 0.0010442181601612347,
-                "weight_decay": 0.0005893976563409883,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00011516814309993394,
+                "weight_decay": 3.484078679853902e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 5,
-            "trial_number": 43,
-            "val_loss": 0.003151244637738411,
+            "trial_number": 42,
+            "val_loss": 0.0031618174937087457,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.15,
-                "learning_rate": 0.0007380899058437677,
-                "weight_decay": 0.0002365688685391542,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00011582132056445244,
+                "weight_decay": 2.97445686059252e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 6,
-            "trial_number": 13,
-            "val_loss": 0.0031525588337176984,
+            "trial_number": 41,
+            "val_loss": 0.003165669778002541,
             "params": {
-                "hidden_dim": 128,
+                "hidden_dim": 256,
                 "n_layers": 3,
                 "pooling_config": "standard_8_4_1",
                 "dropout": 0.05,
-                "learning_rate": 0.0002314351332988961,
-                "weight_decay": 2.778852395236922e-05,
-                "batch_size": 128
+                "learning_rate": 0.00010468675474001396,
+                "weight_decay": 2.942369801607889e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 7,
-            "trial_number": 42,
-            "val_loss": 0.0031534385313086145,
+            "trial_number": 23,
+            "val_loss": 0.003165685517706381,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.15,
-                "learning_rate": 0.0007272545191123475,
-                "weight_decay": 0.0002319048167160354,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.00011932605151414026,
+                "weight_decay": 8.962690541029775e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 8,
-            "trial_number": 32,
-            "val_loss": 0.0031774408597391086,
+            "trial_number": 31,
+            "val_loss": 0.003166945807372712,
             "params": {
                 "hidden_dim": 256,
                 "n_layers": 3,
                 "pooling_config": "standard_8_4_1",
                 "dropout": 0.05,
-                "learning_rate": 0.00023324874044921008,
-                "weight_decay": 1.1345862473226978e-05,
-                "batch_size": 128
+                "learning_rate": 0.00010401911901787568,
+                "weight_decay": 2.742060422593934e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 9,
-            "trial_number": 33,
-            "val_loss": 0.0031777587537225077,
+            "trial_number": 16,
+            "val_loss": 0.003167771034337308,
             "params": {
                 "hidden_dim": 256,
                 "n_layers": 3,
                 "pooling_config": "standard_8_4_1",
                 "dropout": 0.05,
-                "learning_rate": 0.00023290685611407547,
-                "weight_decay": 9.204227175251296e-06,
-                "batch_size": 128
+                "learning_rate": 0.0001036904776072686,
+                "weight_decay": 2.204221779336889e-06,
+                "batch_size": 256
             }
         },
         {
             "rank": 10,
-            "trial_number": 39,
-            "val_loss": 0.0031800063692202407,
+            "trial_number": 27,
+            "val_loss": 0.0031689030581011825,
             "params": {
                 "hidden_dim": 256,
-                "n_layers": 2,
-                "pooling_config": "coarse_16_8_2",
-                "dropout": 0.15,
-                "learning_rate": 0.0007908524444775025,
-                "weight_decay": 0.00030446990742824173,
-                "batch_size": 128
+                "n_layers": 3,
+                "pooling_config": "standard_8_4_1",
+                "dropout": 0.05,
+                "learning_rate": 0.0001236672512525821,
+                "weight_decay": 2.2090504313212986e-05,
+                "batch_size": 256
             }
         }
     ]
