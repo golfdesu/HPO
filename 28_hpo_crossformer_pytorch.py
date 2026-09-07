@@ -94,13 +94,13 @@ if __name__ == '__main__':
 # ---------------------------------------------------------
 # 1. Data Loading & Preprocessing
 # ---------------------------------------------------------
-data_path = '../data_cleaned/acn_caltech_ready2.csv'
+data_path = '../data_cleaned/acn_jpl_ready.csv'
 if not os.path.exists(data_path):
-    data_path = 'data_cleaned/acn_caltech_ready2.csv'
+    data_path = 'data_cleaned/acn_jpl_ready.csv'
 if not os.path.exists(data_path):
-    data_path = '../../data_cleaned/acn_caltech_ready2.csv'
+    data_path = '../../data_cleaned/acn_jpl_ready.csv'
 if not os.path.exists(data_path):
-    data_path = 'acn_caltech_ready2.csv'
+    data_path = 'acn_jpl_ready.csv'
 
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])

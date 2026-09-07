@@ -65,7 +65,7 @@ if device.type == 'cuda':
     torch.backends.cudnn.benchmark = True
 
 # Data Loading & Preprocessing
-data_path = '../data_cleaned/acn_caltech_ready2.csv'
+data_path = '../data_cleaned/acn_jpl_ready.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')

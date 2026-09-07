@@ -1,11 +1,11 @@
 #!/bin/bash
 # ==============================================================================
-# SLURM Job Script: Master HPO Runner for ALL 32 Models on 'mixed' Partition
-# Target Models: 00 to 31 (All Architecture Families)
+# SLURM Job Script: Master HPO Runner for ALL 31 Baselines on 'mixed' Partition
+# Target Models: 01 to 31 (All Architecture Families)
 # Hardware Target: Erawan HPC 'mixed' partition (1x GPU, 8 CPUs, 32GB RAM)
-# Estimated Runtime: ~8.0 - 14.0 hours total (50 trials each, 30 epochs, patience 10)
+# Estimated Runtime: ~8.0 - 13.0 hours total (50 trials each, 30 epochs, patience 10)
 # ==============================================================================
-#SBATCH --job-name=hpo_all_32_models
+#SBATCH --job-name=hpo_baselines_31_models
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --partition=mixed
@@ -16,7 +16,7 @@
 #SBATCH --mem=32G
 #SBATCH --time=24:00:00
 
-mkdir -p logs best_params
+mkdir -p logs best_params/acn_jpl
 
 echo "=============================================================================="
 echo "SLURM Job ID        : $SLURM_JOB_ID"
@@ -70,7 +70,7 @@ run_hpo() {
 
     local json_out="${script_name%.py}_best_params.json"
     if [ -f "${json_out}" ]; then
-        cp -v "${json_out}" best_params/ 2>/dev/null || true
+        cp -v "${json_out}" best_params/acn_jpl/ 2>/dev/null || true
     fi
 
     if [ ${exit_code} -eq 0 ]; then
@@ -84,9 +84,8 @@ run_hpo() {
 TOTAL_START=$(date +%s)
 FAILED_MODELS=()
 
-# All 32 Models Catalog (00 to 31)
+# All 31 Baselines Catalog (01 to 31)
 MODELS=(
-    "00_hpo_tfm_custom_pytorch.py:00 Custom Transformer"
     "01_hpo_tfm_pytorch.py:01 Vanilla Transformer Encoder"
     "02_hpo_dec_pytorch.py:02 Vanilla Transformer Decoder"
     "03_hpo_encdec_pytorch.py:03 Seq2Seq Transformer"
@@ -137,10 +136,10 @@ TOTAL_DIFF=$((TOTAL_END - TOTAL_START))
 
 echo ""
 echo "=============================================================================="
-echo "ALL 32 HPO SEARCHES COMPLETE"
+echo "ALL 31 BASELINE HPO SEARCHES COMPLETE"
 echo "Total Elapsed Time: ${TOTAL_DIFF}s ($((TOTAL_DIFF / 60)) min)"
 if [ ${#FAILED_MODELS[@]} -eq 0 ]; then
-    echo "Status: ALL 32 MODELS COMPLETED SUCCESSFULLY"
+    echo "Status: ALL 31 BASELINES COMPLETED SUCCESSFULLY"
 else
     echo "Status: COMPLETED WITH FAILURES"
     echo "Failed Models: ${FAILED_MODELS[*]}"

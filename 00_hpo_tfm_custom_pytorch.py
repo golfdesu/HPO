@@ -65,7 +65,7 @@ if __name__ == '__main__':
 # ==============================================================================
 # 1. Data Loading & Chronological Split (60% Train / 20% Val)
 # ==============================================================================
-data_path = '../data_cleaned/acn_caltech_ready2.csv'
+data_path = '../data_cleaned/acn_jpl_ready.csv'
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
