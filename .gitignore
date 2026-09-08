@@ -45,6 +45,8 @@
 !configs/
 !configs/**
 !selected_production_params.json
+!best_params/
+!best_params/**
 !*.sbatch
 !.agents/
 !.agents/**

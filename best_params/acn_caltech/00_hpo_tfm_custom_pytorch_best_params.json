@@ -1,0 +1,100 @@
+{
+    "model_name": "00_hpo_tfm_custom_pytorch",
+    "search_mode": "1D_STRENGTH_SEARCH",
+    "locked_params": {
+        "d_model": 128,
+        "num_heads": 4,
+        "d_ff": 256,
+        "num_layers": 1,
+        "dropout_rate": 0.1,
+        "learning_rate": 0.0006412589172202276,
+        "weight_decay": 4.7084742858033325e-05,
+        "batch_size": 128
+    },
+    "best_val_loss": 0.0030057833319785915,
+    "best_params": {
+        "attn_orthogonal_reg": 4.57266747504827e-06
+    },
+    "top_10_trials": [
+        {
+            "rank": 1,
+            "trial_number": 25,
+            "val_loss": 0.0030057833319785915,
+            "params": {
+                "attn_orthogonal_reg": 4.57266747504827e-06
+            }
+        },
+        {
+            "rank": 2,
+            "trial_number": 12,
+            "val_loss": 0.0030191918690589082,
+            "params": {
+                "attn_orthogonal_reg": 1.630974575668494e-05
+            }
+        },
+        {
+            "rank": 3,
+            "trial_number": 43,
+            "val_loss": 0.0030313411088658013,
+            "params": {
+                "attn_orthogonal_reg": 2.3245749889778987e-06
+            }
+        },
+        {
+            "rank": 4,
+            "trial_number": 26,
+            "val_loss": 0.0030477079838833773,
+            "params": {
+                "attn_orthogonal_reg": 1.0909966621228405e-06
+            }
+        },
+        {
+            "rank": 5,
+            "trial_number": 4,
+            "val_loss": 0.0030506557678101494,
+            "params": {
+                "attn_orthogonal_reg": 4.2079886696066345e-06
+            }
+        },
+        {
+            "rank": 6,
+            "trial_number": 28,
+            "val_loss": 0.003071200297522966,
+            "params": {
+                "attn_orthogonal_reg": 2.0426516255085557e-06
+            }
+        },
+        {
+            "rank": 7,
+            "trial_number": 16,
+            "val_loss": 0.003072328986494343,
+            "params": {
+                "attn_orthogonal_reg": 6.077165940218157e-06
+            }
+        },
+        {
+            "rank": 8,
+            "trial_number": 27,
+            "val_loss": 0.0030726461259068037,
+            "params": {
+                "attn_orthogonal_reg": 1.031892981593274e-06
+            }
+        },
+        {
+            "rank": 9,
+            "trial_number": 35,
+            "val_loss": 0.0030736793678202215,
+            "params": {
+                "attn_orthogonal_reg": 1.0586005601090223e-05
+            }
+        },
+        {
+            "rank": 10,
+            "trial_number": 10,
+            "val_loss": 0.0030819579951869135,
+            "params": {
+                "attn_orthogonal_reg": 1.759467864953184e-05
+            }
+        }
+    ]
+}
