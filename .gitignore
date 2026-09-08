@@ -35,33 +35,27 @@
 !30_hpo_nstransformer_pytorch.py
 !31_hpo_scinet_pytorch.py
 
-# 3. Explicitly track metadata, configs, docs
+# 3. Explicitly track root-only metadata, run scripts, configs
 !.gitignore
 !.gitattributes
 !requirements.txt
 !README.md
 !AGENTS.md
 !CLAUDE.md
-!configs/
-!configs/**
-!selected_production_params.json
-!best_params/
-!best_params/**
-!*.sbatch
-!.agents/
-!.agents/**
-!.wikiskill/
-!.wikiskill/**
-!skills/
-!skills/**
-!docs/
-!docs/**
-!archive/
-!archive/**
+!paper_alignment_state.json
+!run_hpo_all_models.sbatch
 
-# 4. Exclude temp and log files
+# 4. Exclude temp, cache, logs, and subdirectories
 *fix*
 *fix.*
 *.log
 __pycache__/
 *.pyc
+.claude/
+.agents/
+.wikiskill/
+archive/
+best_params/
+configs/
+docs/
+skills/
