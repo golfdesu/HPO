@@ -44,6 +44,7 @@
 !CLAUDE.md
 !paper_alignment_state.json
 !run_hpo_all_models.sbatch
+!run_hpo_00_custom.sbatch
 
 # 4. Exclude temp, cache, logs, and subdirectories
 *fix*
