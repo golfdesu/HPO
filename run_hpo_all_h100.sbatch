@@ -109,7 +109,7 @@ run_model() {
 
 TOTAL_START=$(date +%s)
 
-# 3. Catalog of Remaining 18 Models (Models 04 to 28; 00-03 already finished)
+# 3. Catalog of Remaining 17 Models (Models 04 to 28; 00-03 already finished; M18 offloaded to mixed)
 MODELS=(
     "04_hpo_ifm_pytorch.py:M04:04 Informer"
     "06_hpo_ptst_pytorch.py:M06:06 PatchTST"
@@ -121,7 +121,6 @@ MODELS=(
     "15_hpo_timemachine_pytorch.py:M15:15 TimeMachine"
     "16_hpo_s4d_pytorch.py:M16:16 S4D Baseline"
     "17_hpo_xgboost.py:M17:17 XGBoost Direct"
-    "18_hpo_lightgbm.py:M18:18 LightGBM Direct"
     "20_hpo_mft_pytorch.py:M20:20 Multi-Factor Transformer"
     "21_hpo_cnn_lstm_tfm_pytorch.py:M21:21 CNN-LSTM-Transformer"
     "22_hpo_fedformer_pytorch.py:M22:22 FEDformer"
