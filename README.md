@@ -23,11 +23,11 @@ pip install -r requirements.txt
 ```
 
 ### 3. Dataset Structure
-Make sure the dataset is placed at `../data_cleaned/acn_caltech_ready2.csv`:
+Make sure the dataset is placed at `../data_cleaned/acn_caltech_ready_v3.csv`:
 ```
 Practice/
 ├── data_cleaned/
-│   └── acn_caltech_ready2.csv
+│   └── acn_caltech_ready_v3.csv
 └── hyperparameter_tuning/ (this repo)
     ├── 01_hpo_tfm_pytorch.py
     └── ...

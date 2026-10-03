@@ -1,10 +1,10 @@
 {
-    "last_updated": "2026-09-07T10:42:51.708593",
+    "last_updated": "2026-10-03T12:24:52.328054",
     "audit_scope": "Models 00-24 Comprehensive Literature & Code Audit",
     "target_dir": "C:\\Users\\chaya\\Documents\\Program\\Practice\\hyperparameter_tuning",
-    "total_models_scanned": 25,
+    "total_models_scanned": 20,
     "summary": {
-        "fully_aligned": 21,
+        "fully_aligned": 16,
         "deviated_or_bugs": 4
     },
     "results": {
@@ -77,19 +77,6 @@
             ],
             "deviations": []
         },
-        "05_hpo_afm_pytorch.py": {
-            "file": "05_hpo_afm_pytorch.py",
-            "model_id": "05",
-            "model_name": "Autoformer",
-            "paper_reference": "Wu et al. (NeurIPS 2021) - Autoformer: Decomposing Transformers with Auto-Correlation",
-            "status": "ALIGNED",
-            "checked_mechanisms": [
-                "Uses moving average series decomposition",
-                "Uses AutoCorrelation / delay aggregation",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": []
-        },
         "06_hpo_ptst_pytorch.py": {
             "file": "06_hpo_ptst_pytorch.py",
             "model_id": "06",
@@ -116,19 +103,6 @@
             ],
             "deviations": []
         },
-        "08_hpo_timesnet_pytorch.py": {
-            "file": "08_hpo_timesnet_pytorch.py",
-            "model_id": "08",
-            "model_name": "TimesNet",
-            "paper_reference": "Wu et al. (ICLR 2023) - TimesNet: Temporal 2D-Variation Modeling for Time Series Analysis",
-            "status": "ALIGNED",
-            "checked_mechanisms": [
-                "FFT frequency analysis",
-                "2D convolutional Inception block",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": []
-        },
         "09_hpo_lstm_pytorch.py": {
             "file": "09_hpo_lstm_pytorch.py",
             "model_id": "09",
@@ -149,34 +123,6 @@
             "status": "ALIGNED",
             "checked_mechanisms": [
                 "PyTorch nn.GRU sequence layer",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": []
-        },
-        "11_hpo_dlinear_pytorch.py": {
-            "file": "11_hpo_dlinear_pytorch.py",
-            "model_id": "11",
-            "model_name": "DLinear",
-            "paper_reference": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-            "status": "ALIGNED",
-            "checked_mechanisms": [
-                "1-layer linear trend head",
-                "1-layer linear seasonal head",
-                "Multivariate Channel Independence input (C=28)",
-                "Replicate border padding in SeriesDecomp",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": []
-        },
-        "12_hpo_nlinear_pytorch.py": {
-            "file": "12_hpo_nlinear_pytorch.py",
-            "model_id": "12",
-            "model_name": "NLinear",
-            "paper_reference": "Zeng et al. (AAAI 2023) - Are Transformers Effective for Time Series Forecasting?",
-            "status": "ALIGNED",
-            "checked_mechanisms": [
-                "Subtracts sequence tail value (Instance Normalization)",
-                "Multivariate Channel Independence input (C=28)",
                 "Canonical baseline purity (no foreign noise/jitter artifacts)"
             ],
             "deviations": []
@@ -262,18 +208,6 @@
             "status": "ALIGNED",
             "checked_mechanisms": [
                 "LightGBM regressor",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": []
-        },
-        "19_hpo_sarima.py": {
-            "file": "19_hpo_sarima.py",
-            "model_id": "19",
-            "model_name": "SARIMA Baseline",
-            "paper_reference": "Box & Jenkins (1970) - Time Series Analysis: Forecasting and Control",
-            "status": "ALIGNED",
-            "checked_mechanisms": [
-                "Seasonal ARIMA model",
                 "Canonical baseline purity (no foreign noise/jitter artifacts)"
             ],
             "deviations": []

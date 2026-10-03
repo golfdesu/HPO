@@ -5,9 +5,9 @@ This repository is the dedicated Hyperparameter Optimization (HPO) engine of our
 
 ---
 
-## 1. The 3-Pillar Research Ecosystem
+## 1. The 4-Tier / 4-Pillar Research Ecosystem
 
-This workspace operates as part of a tightly coupled **3-Pillar Scientific Ecosystem**:
+This workspace operates as part of a tightly coupled **4-Pillar Scientific Ecosystem**:
 
 ```
 +-------------------------------------------------------------------------------+
@@ -37,9 +37,22 @@ This workspace operates as part of a tightly coupled **3-Pillar Scientific Ecosy
 |  - 32 Benchmark Models (00_*.py to 31_*.py)                                   |
 |  - 10-Seed Robustness Evaluation ([42, 123, ..., 9999])                       |
 |  - 9 Evaluation Metrics + VRAM + Runtime + Multi-step Loss Tracking           |
-|  - Publication Aggregator: tools/aggregate_benchmark.py                       |
-|  - LaTeX, CSV, Markdown Tables & Publication Figures                          |
+|  - Output Directory: outputs/<dataset>/<model_name>/                          |
+|  - Raw JSON & NPZ Serialization for Downstream Visualization                  |
 +---------------------------------------+---------------------------------------+
+                                        | (Raw Results JSON & Predictions NPZ)
+                                        v
++---------------------------------------+---------------------------------------+
+|                 PILLAR 4: PUBLICATION VISUALIZATION ENGINE                    |
+|             Location: C:\Users\chaya\Documents\Program\Practice\bencmark      |
+|  - 4K UHD Figures Generator (generate_figures.py & figures.ipynb)             |
+|  - 01_rankings: 11-metric 3-tier horizontal bar charts                        |
+|  - 02_summary_analyses: Pareto frontier, 24h degradation, multi-horizon comp  |
+|  - 03_model00_deep_dive: 4-horizon showcase & 10-seed loss ribbon             |
+|  - 04_individual_forecasts: 32 individual 4-horizon profiles                  |
+|  - 05_individual_learning_curves: 29 individual 10-seed training traces       |
+|  - LaTeX & Markdown Table Reports (docs/ & plots/ junctions)                  |
++-------------------------------------------------------------------------------+
 ```
 
 ### 1.1 External Academic Knowledge Base (Obsidian Thesis Vault)
@@ -54,14 +67,15 @@ Whenever agents need theoretical context, literature review details, mathematica
 ### 1.2 Cross-Workspace Pipeline & Transitions
 - **Tuning (Here)**: Run Optuna HPO on `00_hpo_*.py` through `31_hpo_*.py`. Raw results saved to `<file_id>_best_params.json`.
 - **Selection (Here)**: Apply the $\epsilon$-tolerance parsimony selection rule to select production hyperparameters into `configs/selected_production_params.json`.
-- **Benchmarking (`../model/`)**: Transfer selected parameters to `../model/<file_id>_*_pytorch.py` and execute 10-seed benchmarking (`[42, 123, 456, 789, 1024, 2024, 2025, 2026, 3407, 9999]`).
-- **Publication Aggregation (`../model/`)**: Run `python tools/aggregate_benchmark.py` in `../model/` to produce publication LaTeX tables, CSV summaries, and high-resolution charts.
+- **Benchmarking (`../model/`)**: Transfer selected parameters to `../model/<file_id>_*_pytorch.py` and execute 10-seed benchmarking (`[42, 123, 456, 789, 1024, 2024, 2025, 2026, 3407, 9999]`). Output serialized to `outputs/<dataset>/<model_name>/`.
+- **Aggregation (`../model/`)**: Run `python tools/aggregate_benchmark.py` in `../model/` to produce publication LaTeX tables, CSV summaries, and initial plots.
+- **Publication Visualization (`../bencmark/`)**: Run `python generate_figures.py all` in `../bencmark/` to produce comprehensive 4K UHD publication figures across all 4 datasets (316+ figures). Junctions (`output/`, `plots/`, `docs/`, `.wikiskill/`) keep data synchronized in real-time.
 
 ---
 
 ## 2. Core Architecture & Standards (NON-NEGOTIABLE)
 
-1. **Dataset Path**: Always load data from `../data_cleaned/acn_caltech_ready2.csv`.
+1. **Dataset Path**: Always load data from `../data_cleaned/acn_caltech_ready_v3.csv`.
 2. **Target Variable**: `kWhDelivered` (EV aggregate station load, kW/kWh). 30 input features total.
 3. **Excluded Noise Features**: `prcp`, `tempDiff_48`, and `cldc` must remain dropped.
 4. **Time Split Protocol**: Chronological split strictly:

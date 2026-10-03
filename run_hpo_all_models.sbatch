@@ -19,7 +19,7 @@
 
 PARALLEL_JOBS=4
 
-mkdir -p logs best_params/acn_jpl
+mkdir -p logs best_params/acn_caltech
 rm -f logs/hpo_completed.txt logs/hpo_failed.txt logs/hpo_progress_summary.txt
 
 echo "=============================================================================="
@@ -77,7 +77,7 @@ run_model() {
     local elapsed_min=$((diff_t / 60))
 
     if [ -f "${json_out}" ]; then
-        cp -v "${json_out}" best_params/acn_jpl/ 2>/dev/null || true
+        cp -v "${json_out}" best_params/acn_caltech/ 2>/dev/null || true
     fi
 
     echo ""
@@ -102,33 +102,23 @@ MODELS=(
     "02_hpo_dec_pytorch.py:M02:02 Vanilla Transformer Decoder"
     "03_hpo_encdec_pytorch.py:M03:03 Seq2Seq Transformer"
     "04_hpo_ifm_pytorch.py:M04:04 Informer"
-    "05_hpo_afm_pytorch.py:M05:05 Autoformer"
     "06_hpo_ptst_pytorch.py:M06:06 PatchTST"
     "07_hpo_itfm_pytorch.py:M07:07 iTransformer"
-    "08_hpo_timesnet_pytorch.py:M08:08 TimesNet"
     "09_hpo_lstm_pytorch.py:M09:09 LSTM Baseline"
     "10_hpo_gru_pytorch.py:M10:10 GRU Baseline"
-    "11_hpo_dlinear_pytorch.py:M11:11 DLinear"
-    "12_hpo_nlinear_pytorch.py:M12:12 NLinear"
     "13_hpo_smamba_pytorch.py:M13:13 S-Mamba"
     "14_hpo_powermamba_pytorch.py:M14:14 PowerMamba"
     "15_hpo_timemachine_pytorch.py:M15:15 TimeMachine"
     "16_hpo_s4d_pytorch.py:M16:16 S4D Baseline"
     "17_hpo_xgboost.py:M17:17 XGBoost Direct"
     "18_hpo_lightgbm.py:M18:18 LightGBM Direct"
-    "19_hpo_sarima.py:M19:19 SARIMA Baseline"
     "20_hpo_mft_pytorch.py:M20:20 Multi-Factor Transformer"
     "21_hpo_cnn_lstm_tfm_pytorch.py:M21:21 CNN-LSTM-Transformer"
     "22_hpo_fedformer_pytorch.py:M22:22 FEDformer"
     "23_hpo_tcn_pytorch.py:M23:23 TCN Baseline"
     "24_hpo_nhits_pytorch.py:M24:24 N-HiTS Baseline"
-    "25_hpo_tide_pytorch.py:M25:25 TiDE Baseline"
-    "26_hpo_nbeats_pytorch.py:M26:26 N-BEATS Baseline"
     "27_hpo_moderntcn_pytorch.py:M27:27 ModernTCN"
     "28_hpo_crossformer_pytorch.py:M28:28 Crossformer"
-    "29_hpo_segrnn_pytorch.py:M29:29 SegRNN"
-    "30_hpo_nstransformer_pytorch.py:M30:30 Non-stationary Transformer"
-    "31_hpo_scinet_pytorch.py:M31:31 SCINet"
 )
 
 # Launch with worker pool maintaining PARALLEL_JOBS concurrent processes
