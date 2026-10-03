@@ -2,7 +2,7 @@
 # ==============================================================================
 # SLURM Job Script: Master HPO Runner for ALL 21 Models on 'mixed' Partition
 # Target Hardware: Erawan HPC 'mixed' partition (16 CPU cores, 64GB RAM, 1 GPU)
-# Partition      : mixed (Walltime: 48:00:00)
+# Partition      : mixed (Walltime: 24:00:00)
 # Dataset Target : ACN JPL/JPN V3 (../data_cleaned/acn_jpl_ready_v3.csv)
 # Destination    : best_params/acn_jpl/
 # Models Included: ALL 21 active models (00 to 28, including M18 LightGBM)
@@ -16,7 +16,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
-#SBATCH --time=48:00:00
+#SBATCH --time=24:00:00
 
 # Concurrency Mode: 1 = pure sequential (safest on mixed GPU), 2+ = parallel
 PARALLEL_JOBS=1
