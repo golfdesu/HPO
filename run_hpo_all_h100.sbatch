@@ -109,8 +109,12 @@ run_model() {
 
 TOTAL_START=$(date +%s)
 
-# 3. Catalog of Remaining 17 Models (Models 04 to 28; 00-03 already finished; M18 offloaded to mixed)
+# 3. Catalog of ALL 21 Active Models on H100 (Excluding M18 offloaded to mixed)
 MODELS=(
+    "00_hpo_tfm_custom_pytorch.py:M00:00 Proposed Custom Transformer"
+    "01_hpo_tfm_pytorch.py:M01:01 Vanilla Transformer Encoder"
+    "02_hpo_dec_pytorch.py:M02:02 Vanilla Transformer Decoder"
+    "03_hpo_encdec_pytorch.py:M03:03 Seq2Seq Transformer"
     "04_hpo_ifm_pytorch.py:M04:04 Informer"
     "06_hpo_ptst_pytorch.py:M06:06 PatchTST"
     "07_hpo_itfm_pytorch.py:M07:07 iTransformer"
