@@ -17,17 +17,14 @@
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 
-# Concurrency: 1 = pure sequential (safest, zero VRAM contention on H100)
-# Set to 2 or 3 if running lightweight models concurrently
-PARALLEL_JOBS=1
+# Concurrency: 4 models in parallel on NVIDIA H100 (80GB VRAM)
+PARALLEL_JOBS=4
 
 mkdir -p logs best_params/acn_caltech
 
 PROGRESS_LOG="logs/hpo_progress_summary.txt"
 COMPLETED_LOG="logs/hpo_completed.txt"
 FAILED_LOG="logs/hpo_failed.txt"
-
-rm -f "${PROGRESS_LOG}" "${COMPLETED_LOG}" "${FAILED_LOG}"
 
 echo "=============================================================================="
 echo "SLURM Job ID        : $SLURM_JOB_ID"
@@ -112,12 +109,8 @@ run_model() {
 
 TOTAL_START=$(date +%s)
 
-# 3. Catalog of ALL 22 Active Models (Proposed + 21 Canonical Baselines)
+# 3. Catalog of Remaining 18 Models (Models 04 to 28; 00-03 already finished)
 MODELS=(
-    "00_hpo_tfm_custom_pytorch.py:M00:00 Proposed Custom Transformer"
-    "01_hpo_tfm_pytorch.py:M01:01 Vanilla Transformer Encoder"
-    "02_hpo_dec_pytorch.py:M02:02 Vanilla Transformer Decoder"
-    "03_hpo_encdec_pytorch.py:M03:03 Seq2Seq Transformer"
     "04_hpo_ifm_pytorch.py:M04:04 Informer"
     "06_hpo_ptst_pytorch.py:M06:06 PatchTST"
     "07_hpo_itfm_pytorch.py:M07:07 iTransformer"
