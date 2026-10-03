@@ -1,0 +1,211 @@
+{
+    "model_name": "21_hpo_cnn_lstm_tfm_pytorch",
+    "search_mode": "FULL_100_PERCENT",
+    "best_val_loss": 0.013533194386394368,
+    "best_params": {
+        "cnn_channels": 32,
+        "kernel_size": 5,
+        "lstm_hidden": 32,
+        "lstm_layers": 1,
+        "d_model": 128,
+        "n_heads": 4,
+        "d_ff_mult": 4,
+        "tfm_layers": 1,
+        "dropout": 0.2,
+        "learning_rate": 0.001493155292930546,
+        "weight_decay": 0.0002682844682308789,
+        "batch_size": 128
+    },
+    "top_10_trials": [
+        {
+            "rank": 1,
+            "trial_number": 15,
+            "val_loss": 0.013533194386394368,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 32,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 4,
+                "tfm_layers": 1,
+                "dropout": 0.2,
+                "learning_rate": 0.001493155292930546,
+                "weight_decay": 0.0002682844682308789,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 2,
+            "trial_number": 43,
+            "val_loss": 0.013799785288864051,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 128,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 2,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.0015916213002853683,
+                "weight_decay": 0.00010575459216875386,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 3,
+            "trial_number": 24,
+            "val_loss": 0.013908806075038025,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 32,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 2,
+                "d_ff_mult": 4,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.0018072467320911318,
+                "weight_decay": 0.00033076181664699477,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 4,
+            "trial_number": 45,
+            "val_loss": 0.014006131560704203,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 128,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 2,
+                "tfm_layers": 2,
+                "dropout": 0.1,
+                "learning_rate": 0.0012303970836464928,
+                "weight_decay": 0.00014947477559488335,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 5,
+            "trial_number": 35,
+            "val_loss": 0.014099195524331032,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 128,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 2,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.001862798742419285,
+                "weight_decay": 0.0005673426745944201,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 6,
+            "trial_number": 42,
+            "val_loss": 0.014197465324722816,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 128,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 2,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.0019370465230475328,
+                "weight_decay": 0.0004862669734190947,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 7,
+            "trial_number": 32,
+            "val_loss": 0.014219503088033165,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 32,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 2,
+                "d_ff_mult": 4,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.001992681703105684,
+                "weight_decay": 0.0005284029908639559,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 8,
+            "trial_number": 41,
+            "val_loss": 0.014262028424561797,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 128,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 4,
+                "d_ff_mult": 2,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.0019988586122477855,
+                "weight_decay": 0.0005805338069630011,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 9,
+            "trial_number": 33,
+            "val_loss": 0.014348914677403528,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 32,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 2,
+                "d_ff_mult": 4,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.001988033523928517,
+                "weight_decay": 0.0006029576125595876,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 10,
+            "trial_number": 20,
+            "val_loss": 0.014620134610269226,
+            "params": {
+                "cnn_channels": 32,
+                "kernel_size": 5,
+                "lstm_hidden": 32,
+                "lstm_layers": 1,
+                "d_model": 128,
+                "n_heads": 2,
+                "d_ff_mult": 4,
+                "tfm_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.0013137066321330252,
+                "weight_decay": 4.992224422085125e-05,
+                "batch_size": 128
+            }
+        }
+    ]
+}
