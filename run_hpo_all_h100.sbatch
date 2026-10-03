@@ -109,7 +109,7 @@ run_model() {
 
 TOTAL_START=$(date +%s)
 
-# 3. Catalog of ALL 21 Active Models on H100 (Excluding M18 offloaded to mixed)
+# 3. Catalog of ALL 20 Active Models on H100 (Excluding M18 on mixed and excluded models)
 MODELS=(
     "00_hpo_tfm_custom_pytorch.py:M00:00 Proposed Custom Transformer"
     "01_hpo_tfm_pytorch.py:M01:01 Vanilla Transformer Encoder"
@@ -122,7 +122,6 @@ MODELS=(
     "10_hpo_gru_pytorch.py:M10:10 GRU Baseline"
     "13_hpo_smamba_pytorch.py:M13:13 S-Mamba"
     "14_hpo_powermamba_pytorch.py:M14:14 PowerMamba"
-    "15_hpo_timemachine_pytorch.py:M15:15 TimeMachine"
     "16_hpo_s4d_pytorch.py:M16:16 S4D Baseline"
     "17_hpo_xgboost.py:M17:17 XGBoost Direct"
     "20_hpo_mft_pytorch.py:M20:20 Multi-Factor Transformer"

@@ -13,7 +13,6 @@
 !10_hpo_gru_pytorch.py
 !13_hpo_smamba_pytorch.py
 !14_hpo_powermamba_pytorch.py
-!15_hpo_timemachine_pytorch.py
 !16_hpo_s4d_pytorch.py
 !17_hpo_xgboost.py
 !18_hpo_lightgbm.py

@@ -1,11 +1,11 @@
 {
-    "last_updated": "2026-10-03T12:24:52.328054",
+    "last_updated": "2026-10-03T23:38:39.352378",
     "audit_scope": "Models 00-24 Comprehensive Literature & Code Audit",
     "target_dir": "C:\\Users\\chaya\\Documents\\Program\\Practice\\hyperparameter_tuning",
-    "total_models_scanned": 20,
+    "total_models_scanned": 19,
     "summary": {
         "fully_aligned": 16,
-        "deviated_or_bugs": 4
+        "deviated_or_bugs": 3
     },
     "results": {
         "00_hpo_tfm_custom_pytorch.py": {
@@ -156,21 +156,6 @@
             ],
             "deviations": [
                 "CRITICAL DEVIATION: Fails to implement canonical PowerMamba (Menati et al., 2024): lacks dual-path iMamba (transposed variate scan), concatenated [T; S] fixed embedding, and composite fusion head; implemented as shortcut (SeriesDecomp + 1D SSM + Linear + MLP head)."
-            ]
-        },
-        "15_hpo_timemachine_pytorch.py": {
-            "file": "15_hpo_timemachine_pytorch.py",
-            "model_id": "15",
-            "model_name": "TimeMachine",
-            "paper_reference": "Ahamed & Cheng (2024) - TimeMachine: A Time-Series is Worth 4 Mambas for Long-term Forecasting",
-            "status": "DEVIATED",
-            "checked_mechanisms": [
-                "Cross-time Mamba branch",
-                "Cross-channel/variate Mamba branch",
-                "Canonical baseline purity (no foreign noise/jitter artifacts)"
-            ],
-            "deviations": [
-                "CRITICAL DEVIATION: Fails to implement canonical TimeMachine (Ahamed & Cheng, 2024): lacks 2-stage multi-scale embedding (n1 > n2) and quadruple-Mamba pyramid; implemented as single-scale sum of 2 time SSMs + 2 channel SSMs with MLP head."
             ]
         },
         "16_hpo_s4d_pytorch.py": {
