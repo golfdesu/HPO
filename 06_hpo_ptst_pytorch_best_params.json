@@ -1,0 +1,189 @@
+{
+    "model_name": "06_hpo_ptst_pytorch",
+    "search_mode": "FULL_100_PERCENT",
+    "best_val_loss": 0.005478114491002105,
+    "best_params": {
+        "d_model": 128,
+        "num_heads": 8,
+        "d_ff_mult": 2,
+        "num_layers": 2,
+        "dropout_rate": 0.15000000000000002,
+        "learning_rate": 0.0005234167318158844,
+        "weight_decay": 1.6831935819015892e-06,
+        "batch_size": 256,
+        "patch_len": 16,
+        "stride": 8
+    },
+    "top_10_trials": [
+        {
+            "rank": 1,
+            "trial_number": 26,
+            "val_loss": 0.005478114491002105,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 2,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.0005234167318158844,
+                "weight_decay": 1.6831935819015892e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 2,
+            "trial_number": 41,
+            "val_loss": 0.00557454923064475,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00023271289844810846,
+                "weight_decay": 1.6878145535533365e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 3,
+            "trial_number": 45,
+            "val_loss": 0.005576033565635038,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 2,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.0008242330942202916,
+                "weight_decay": 1.324751719569623e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 4,
+            "trial_number": 30,
+            "val_loss": 0.005605672918903685,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00022892677094793416,
+                "weight_decay": 1.9985333987243506e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 5,
+            "trial_number": 28,
+            "val_loss": 0.005618624671034675,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 2,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00030449522021279684,
+                "weight_decay": 1.0101353763287238e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 6,
+            "trial_number": 46,
+            "val_loss": 0.005620362902997346,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 2,
+                "dropout_rate": 0.2,
+                "learning_rate": 0.0007810162012624962,
+                "weight_decay": 1.264348558613338e-06,
+                "batch_size": 128,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 7,
+            "trial_number": 31,
+            "val_loss": 0.005641944976558752,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00030801374838260897,
+                "weight_decay": 1.718290140684768e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 8,
+            "trial_number": 35,
+            "val_loss": 0.005644306854061867,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00023353799615811262,
+                "weight_decay": 1.6327528833184659e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 9,
+            "trial_number": 32,
+            "val_loss": 0.00564705388101398,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.00022936255078803626,
+                "weight_decay": 2.1307970376017294e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        },
+        {
+            "rank": 10,
+            "trial_number": 42,
+            "val_loss": 0.005648763357658141,
+            "params": {
+                "d_model": 128,
+                "num_heads": 8,
+                "d_ff_mult": 2,
+                "num_layers": 3,
+                "dropout_rate": 0.15000000000000002,
+                "learning_rate": 0.0003407599441496911,
+                "weight_decay": 3.5730497236913927e-06,
+                "batch_size": 256,
+                "patch_len": 16,
+                "stride": 8
+            }
+        }
+    ]
+}

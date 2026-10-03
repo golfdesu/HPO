@@ -1,0 +1,200 @@
+{
+    "model_name": "22_hpo_fedformer_pytorch",
+    "search_mode": "FULL_100_PERCENT",
+    "best_val_loss": 0.0031932485912319316,
+    "best_params": {
+        "d_model": 32,
+        "n_heads": 8,
+        "modes": 24,
+        "d_ff_mult": 4,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 1,
+        "kernel_size": 49,
+        "dropout": 0.15,
+        "learning_rate": 0.0006090562260935274,
+        "weight_decay": 1.519172660369855e-06,
+        "batch_size": 128
+    },
+    "top_10_trials": [
+        {
+            "rank": 1,
+            "trial_number": 34,
+            "val_loss": 0.0031932485912319316,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.15,
+                "learning_rate": 0.0006090562260935274,
+                "weight_decay": 1.519172660369855e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 2,
+            "trial_number": 41,
+            "val_loss": 0.0032076458053247625,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.0005768941517421446,
+                "weight_decay": 5.383689819906414e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 3,
+            "trial_number": 44,
+            "val_loss": 0.003210379678666742,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.1,
+                "learning_rate": 0.000577775143486706,
+                "weight_decay": 1.3181329840180438e-05,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 4,
+            "trial_number": 43,
+            "val_loss": 0.0032123812147819004,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.1,
+                "learning_rate": 0.0005903561393158063,
+                "weight_decay": 1.4090417541637285e-05,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 5,
+            "trial_number": 42,
+            "val_loss": 0.003223081717730358,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.1,
+                "learning_rate": 0.0005379525421109991,
+                "weight_decay": 1.3453366078850578e-05,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 6,
+            "trial_number": 14,
+            "val_loss": 0.003247599594276234,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.0010658823247983419,
+                "weight_decay": 1.4242702194604388e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 7,
+            "trial_number": 2,
+            "val_loss": 0.003253450345313752,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 16,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 1,
+                "num_decoder_layers": 2,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.001010912598210831,
+                "weight_decay": 3.945908811099999e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 8,
+            "trial_number": 24,
+            "val_loss": 0.0032547374841995526,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.000532831390631576,
+                "weight_decay": 1.7258763666320444e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 9,
+            "trial_number": 23,
+            "val_loss": 0.003256910120009023,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.0008607435235067492,
+                "weight_decay": 4.385066055978085e-06,
+                "batch_size": 128
+            }
+        },
+        {
+            "rank": 10,
+            "trial_number": 22,
+            "val_loss": 0.0032573562129523987,
+            "params": {
+                "d_model": 32,
+                "n_heads": 8,
+                "modes": 24,
+                "d_ff_mult": 4,
+                "num_encoder_layers": 2,
+                "num_decoder_layers": 1,
+                "kernel_size": 49,
+                "dropout": 0.2,
+                "learning_rate": 0.0008582574053435144,
+                "weight_decay": 4.807743149803901e-06,
+                "batch_size": 128
+            }
+        }
+    ]
+}
