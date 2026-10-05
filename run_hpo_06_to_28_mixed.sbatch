@@ -104,9 +104,6 @@ run_model() {
     local elapsed_min=$((diff_t / 60))
 
     # Ensure output json is kept at root and synced to best_params/acn_jpl/
-    if [ -f "best_params/acn_jpl/${json_out}" ]; then
-        cp -v "best_params/acn_jpl/${json_out}" "./${json_out}" 2>/dev/null || true
-    fi
     if [ -f "${json_out}" ]; then
         cp -v "${json_out}" best_params/acn_jpl/ 2>/dev/null || true
         echo ">>> [SAVED TO ROOT] Confirmed at $(pwd)/${json_out}"

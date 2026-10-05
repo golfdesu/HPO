@@ -87,9 +87,6 @@ END_T=$(date +%s)
 DIFF_T=$((END_T - START_T))
 ELAPSED_MIN=$((DIFF_T / 60))
 
-if [ -f "best_params/acn_jpl/${JSON_OUT}" ]; then
-    cp -v "best_params/acn_jpl/${JSON_OUT}" "./${JSON_OUT}" 2>/dev/null || true
-fi
 if [ -f "${JSON_OUT}" ]; then
     cp -v "${JSON_OUT}" best_params/acn_jpl/ 2>/dev/null || true
     echo "Successfully confirmed ${JSON_OUT} is at root: $(pwd)/${JSON_OUT}"
