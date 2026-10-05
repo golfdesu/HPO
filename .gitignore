@@ -37,6 +37,7 @@
 !run_hpo_all_mixed.sbatch
 !run_hpo_remaining_h100.sbatch
 !run_hpo_07_h100.sbatch
+!run_hpo_06_to_28_mixed.sbatch
 
 # 4. Exclude temp, cache, logs, and subdirectories
 *fix*
