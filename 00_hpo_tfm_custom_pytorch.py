@@ -70,21 +70,40 @@ if __name__ == '__main__':
 # ==============================================================================
 # 1. Dataset Loading & Preprocessing (Paper Invariants: Caltech with Weather)
 # ==============================================================================
-data_path = '../data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../../data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../../data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_jpn_ready_v3.csv'
+dataset_target = os.environ.get('DATASET_TARGET', 'acn_jpl_ready_v3')
+if 'caltech' in dataset_target.lower():
+    csv_candidates = [
+        '../data_cleaned/acn_caltech_ready_v3.csv',
+        'data_cleaned/acn_caltech_ready_v3.csv',
+        '../../data_cleaned/acn_caltech_ready_v3.csv',
+        'acn_caltech_ready_v3.csv',
+        '../data_cleaned/acn_caltech_ready2.csv',
+        'data_cleaned/acn_caltech_ready2.csv'
+    ]
+    dataset_name_tag = 'acn_caltech_v3'
+else:
+    csv_candidates = [
+        '../data_cleaned/acn_jpl_ready_v3.csv',
+        'data_cleaned/acn_jpl_ready_v3.csv',
+        '../data_cleaned/acn_jpn_ready_v3.csv',
+        'data_cleaned/acn_jpn_ready_v3.csv',
+        '../../data_cleaned/acn_jpl_ready_v3.csv',
+        '../../data_cleaned/acn_jpn_ready_v3.csv',
+        'acn_jpl_ready_v3.csv',
+        'acn_jpn_ready_v3.csv'
+    ]
+    dataset_name_tag = 'acn_jpl'
+
+data_path = None
+for cand in csv_candidates:
+    if os.path.exists(cand):
+        data_path = cand
+        break
+
+if data_path is None:
+    raise FileNotFoundError(f"Could not locate dataset for target {dataset_target}")
+
+print(f"Loading dataset from: {data_path} (Target: {dataset_name_tag})")
 
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
@@ -462,7 +481,7 @@ if __name__ == '__main__':
     best_data = {
         "model_name": "00_hpo_tfm_custom_pytorch",
         "search_mode": "FULL_100_PERCENT",
-        "dataset": "acn_jpl_ready_v3",
+        "dataset": dataset_name_tag,
         "architecture_paradigm": "inverted_variate_centric_transformer",
         "base_model": "07_hpo_itfm_pytorch",
         "best_val_loss": float(study.best_value),
@@ -475,7 +494,7 @@ if __name__ == '__main__':
     print(f"\nSaved best parameters to {output_json}")
 
     # Also archive to best_params directory if exists
-    archive_dir = os.path.join("best_params", "acn_jpl")
+    archive_dir = os.path.join("best_params", dataset_name_tag)
     os.makedirs(archive_dir, exist_ok=True)
     archive_json = os.path.join(archive_dir, output_json)
     with open(archive_json, "w", encoding="utf-8") as f:
