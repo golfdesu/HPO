@@ -306,9 +306,9 @@ NHiTSModel = NHiTS
 def objective(trial):
     set_seed(SEED)
 
-    hidden_dim = trial.suggest_categorical("hidden_dim", [64, 128, 256])
-    n_layers   = trial.suggest_int("n_layers", 2, 3)
-    
+    hidden_dim = trial.suggest_categorical("hidden_dim", [128])
+    n_layers   = trial.suggest_categorical("n_layers", [2])
+
     pooling_config = trial.suggest_categorical("pooling_config", ["standard_8_4_1", "fine_4_2_1", "coarse_16_8_2"])
     if pooling_config == "standard_8_4_1":
         pooling_sizes = [8, 4, 1]
@@ -321,7 +321,7 @@ def objective(trial):
 
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay  = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size    = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(
         TensorDataset(X_train_t, y_train_t),

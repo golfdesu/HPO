@@ -460,20 +460,19 @@ FEDformerModel = FEDformer
 def objective(trial):
     set_seed(SEED)
 
-    d_model = trial.suggest_categorical("d_model", [32, 64, 128])
-    valid_heads = [h for h in [2, 4, 8] if d_model % h == 0]
-    n_heads = trial.suggest_categorical("n_heads", valid_heads)
+    d_model = trial.suggest_categorical("d_model", [128])
+    n_heads = trial.suggest_categorical("n_heads", [8])
     modes = trial.suggest_categorical("modes", [8, 16, 24])
-    d_ff_mult = trial.suggest_categorical("d_ff_mult", [2, 4])
+    d_ff_mult = trial.suggest_categorical("d_ff_mult", [4])
     d_ff = d_model * d_ff_mult
-    num_encoder_layers = trial.suggest_int("num_encoder_layers", 1, 3)
-    num_decoder_layers = trial.suggest_int("num_decoder_layers", 1, 2)
+    num_encoder_layers = trial.suggest_categorical("num_encoder_layers", [2])
+    num_decoder_layers = trial.suggest_categorical("num_decoder_layers", [2])
     kernel_size = trial.suggest_categorical("kernel_size", [13, 25, 49])
     dropout = trial.suggest_categorical("dropout", [0.05, 0.10, 0.15, 0.20])
 
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay  = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size    = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(
         TensorDataset(X_train_t, y_train_t),

@@ -281,8 +281,8 @@ TemporalConvNetModel = TemporalConvNet
 def objective(trial):
     set_seed(SEED)
 
-    channel_dim = trial.suggest_categorical("channel_dim", [32, 64, 128])
-    num_layers  = trial.suggest_int("num_layers", 3, 6)
+    channel_dim = trial.suggest_categorical("channel_dim", [128])
+    num_layers  = trial.suggest_categorical("num_layers", [3])
     num_channels = [channel_dim] * num_layers
 
     kernel_size = trial.suggest_categorical("kernel_size", [3, 5])
@@ -290,7 +290,7 @@ def objective(trial):
 
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay  = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size    = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(
         TensorDataset(X_train_t, y_train_t),

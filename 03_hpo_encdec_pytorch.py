@@ -185,17 +185,16 @@ class EncoderDecoderTransformer(nn.Module):
 
 # --- Optuna Objective (FULL 100% Data Search) ---
 def objective(trial):
-    d_model = trial.suggest_categorical('d_model', [32, 64, 128])
-    valid_heads = [h for h in [2, 4, 8] if d_model % h == 0]
-    num_heads = trial.suggest_categorical('num_heads', valid_heads)
-    ff_mult = trial.suggest_categorical('d_ff_mult', [2, 4])
+    d_model = trial.suggest_categorical('d_model', [128])
+    num_heads = trial.suggest_categorical('num_heads', [8])
+    ff_mult = trial.suggest_categorical('d_ff_mult', [4])
     d_ff = d_model * ff_mult
-    
-    num_layers   = trial.suggest_int('num_layers', 1, 3)
+
+    num_layers   = trial.suggest_categorical('num_layers', [2])
     dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.2, step=0.05)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-3, log=True)
     weight_decay  = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical('batch_size', [64, 128, 256])
+    batch_size    = trial.suggest_categorical('batch_size', [32])
     
     extra_kwargs = {}
 

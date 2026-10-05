@@ -360,14 +360,14 @@ ModernTCNModel = ModernTCN
 def objective(trial):
     set_seed(SEED)
 
-    d_model = trial.suggest_categorical("d_model", [32, 64, 128])
+    d_model = trial.suggest_categorical("d_model", [128])
     kernel_size = trial.suggest_categorical("kernel_size", [13, 25, 49])
-    num_layers = trial.suggest_int("num_layers", 1, 3)
+    num_layers = trial.suggest_categorical("num_layers", [2])
     ffn_ratio = trial.suggest_categorical("ffn_ratio", [1, 2])
     dropout = trial.suggest_categorical("dropout", [0.05, 0.10, 0.15, 0.20])
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=False)
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False)

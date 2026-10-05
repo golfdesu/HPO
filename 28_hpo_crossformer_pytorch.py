@@ -286,13 +286,13 @@ def objective(trial):
     set_seed(SEED)
 
     seg_len = trial.suggest_categorical("seg_len", [8, 16, 24])
-    d_model = trial.suggest_categorical("d_model", [64, 128, 256])
-    num_heads = trial.suggest_categorical("num_heads", [4, 8])
-    num_layers = trial.suggest_int("num_layers", 1, 3)
+    d_model = trial.suggest_categorical("d_model", [128])
+    num_heads = trial.suggest_categorical("num_heads", [8])
+    num_layers = trial.suggest_categorical("num_layers", [2])
     dropout = trial.suggest_categorical("dropout", [0.05, 0.10, 0.15, 0.20])
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=False)
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False)

@@ -285,25 +285,24 @@ class CNNLSTMTransformer(nn.Module):
 def objective(trial):
     set_seed(SEED)
 
-    # Architectural hyperparameter search space
-    cnn_channels = trial.suggest_categorical("cnn_channels", [32, 64, 128])
+    # Architectural hyperparameter search space (Locked for fair capacity parity)
+    cnn_channels = trial.suggest_categorical("cnn_channels", [128])
     kernel_size  = trial.suggest_categorical("kernel_size", [3, 5])
-    lstm_hidden  = trial.suggest_categorical("lstm_hidden", [32, 64, 128])
-    lstm_layers  = trial.suggest_int("lstm_layers", 1, 2)
-    
-    d_model = trial.suggest_categorical("d_model", [32, 64, 128])
-    possible_heads = [h for h in [2, 4, 8] if d_model % h == 0]
-    n_heads = trial.suggest_categorical("n_heads", possible_heads)
-    
-    d_ff_mult = trial.suggest_categorical("d_ff_mult", [2, 4])
+    lstm_hidden  = trial.suggest_categorical("lstm_hidden", [128])
+    lstm_layers  = trial.suggest_categorical("lstm_layers", [2])
+
+    d_model = trial.suggest_categorical("d_model", [128])
+    n_heads = trial.suggest_categorical("n_heads", [8])
+
+    d_ff_mult = trial.suggest_categorical("d_ff_mult", [4])
     d_ff = d_model * d_ff_mult
-    tfm_layers = trial.suggest_int("tfm_layers", 1, 2)
+    tfm_layers = trial.suggest_categorical("tfm_layers", [2])
     dropout = trial.suggest_categorical("dropout", [0.05, 0.10, 0.15, 0.20])
 
     # Optimization hyperparameter search space
     learning_rate = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
     weight_decay  = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical("batch_size", [64, 128, 256])
+    batch_size    = trial.suggest_categorical("batch_size", [32])
 
     train_loader = DataLoader(
         TensorDataset(X_train_t, y_train_t),

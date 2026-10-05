@@ -182,12 +182,12 @@ class GRUBaseline(nn.Module):
 # 3. Optuna Objective
 # ---------------------------------------------------------
 def objective(trial):
-    d_model      = trial.suggest_categorical('d_model', [32, 64, 128])
-    num_layers   = trial.suggest_int('num_layers', 1, 3)
+    d_model      = trial.suggest_categorical('d_model', [128])
+    num_layers   = trial.suggest_categorical('num_layers', [2])
     dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.3, step=0.05)
     lr           = trial.suggest_float('learning_rate', 1e-4, 5e-3, log=True)
     weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-2, log=True)
-    batch_size   = trial.suggest_categorical('batch_size', [64, 128, 256])
+    batch_size   = trial.suggest_categorical('batch_size', [32])
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=(device.type == 'cuda'))
     val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=(device.type == 'cuda'))

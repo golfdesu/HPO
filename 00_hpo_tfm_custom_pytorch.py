@@ -323,19 +323,18 @@ class InvertedCustomTransformer(nn.Module):
 # 3. Full Search Optuna Objective Function
 # ==============================================================================
 def objective(trial):
-    # Architecture Search
-    d_model      = trial.suggest_categorical('d_model', [32, 64, 128])
-    valid_heads  = [h for h in [2, 4, 8] if d_model % h == 0]
-    num_heads    = trial.suggest_categorical('num_heads', valid_heads)
-    d_ff_mult    = trial.suggest_categorical('d_ff_mult', [2, 4])
+    # Architecture Search (Locked for capacity parity across benchmarks)
+    d_model      = trial.suggest_categorical('d_model', [128])
+    num_heads    = trial.suggest_categorical('num_heads', [8])
+    d_ff_mult    = trial.suggest_categorical('d_ff_mult', [4])
     d_ff         = d_model * d_ff_mult
-    num_layers   = trial.suggest_int('num_layers', 1, 3)
+    num_layers   = trial.suggest_categorical('num_layers', [2])
     dropout_rate = trial.suggest_float('dropout_rate', 0.05, 0.25, step=0.05)
 
     # Optimization Hyperparameters
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 3e-3, log=True)
     weight_decay  = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
-    batch_size    = trial.suggest_categorical('batch_size', [64, 128])
+    batch_size    = trial.suggest_categorical('batch_size', [32])
 
     # Orthogonal Regularization Weights (Thesis Custom Mechanisms)
     attn_orthogonal_reg       = trial.suggest_float('attn_orthogonal_reg', 1e-6, 1e-2, log=True)
