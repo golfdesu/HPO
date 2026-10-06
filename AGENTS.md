@@ -92,6 +92,14 @@ Whenever agents need theoretical context, literature review details, mathematica
 - **Models 01 through 31 (All Baselines)**: Must strictly match their canonical published research papers **100%** (Vaswani 2017, Informer, Autoformer, PatchTST, iTransformer, TimesNet, LSTM, GRU, DLinear, NLinear, S-Mamba, PowerMamba, TimeMachine, S4D, ModernTCN, etc.).
 - **NO FOREIGN ARTIFACTS IN BASELINES**: Baselines MUST NOT contain ad-hoc foreign layers (e.g., `GaussianNoise` / input jittering), unofficial structural shortcuts, or artificial feature dropping. All baselines must be adapted faithfully and fairly to the EV load sequence geometry ($L=96, H=48, 28$ features) following their canonical literature specifications without unvetted modifications.
 
+### 2.2 Strict Root-Level Artifact Invariant (NON-NEGOTIABLE)
+- **Execution Phase (HPC & Local HPO/Tuning Runs)**:
+  - STRICTLY FORBIDDEN to create subdirectories (e.g. `best_params/`, `outputs/`, `artifacts/`) or write auto-archiving code inside HPO scripts or SLURM batch runners.
+  - All HPO outputs (`<model>_best_params.json`) MUST be saved directly to the repository root directory (`.`).
+  - This guarantees clean, immediate inspection via `ls` on HPC clusters and straightforward Git tracking.
+- **Evaluation & Archiving Phase (Post-Run Only)**:
+  - Archiving into structured directories (`best_params/<dataset>/`) is performed EXCLUSIVELY during local post-processing after pulling results via Git. No HPO script or runner may create subdirectories during execution.
+
 ---
 
 ## 3. Comprehensive Model Catalog (All 32 Models: 00 to 31)
