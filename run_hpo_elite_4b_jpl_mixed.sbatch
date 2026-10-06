@@ -21,9 +21,9 @@
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
 
-# Concurrency Mode: 2 parallel jobs (safe on mixed GPU, same as run_hpo_elite_mixed.sbatch)
-# Set to 1 for strictly sequential execution.
-PARALLEL_JOBS=2
+# Concurrency Mode: 1 = strictly sequential (one model at a time).
+# Set to 2 for parallel execution (as in run_hpo_elite_mixed.sbatch).
+PARALLEL_JOBS=1
 
 mkdir -p logs
 
