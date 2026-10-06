@@ -407,7 +407,7 @@ if __name__ == '__main__':
     print(f"\n  - Lowest Validation Loss: {study.best_value:.6f}")
     print("=" * 65)
 
-    output_json = "13_hpo_smamba_pytorch_best_params.json"
+    output_json = "13_hpo_smamba_pytorch_best_params" + os.environ.get('HPO_OUTPUT_SUFFIX', '') + ".json"
     completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
     completed_trials.sort(key=lambda t: t.value)
     top_10 = [

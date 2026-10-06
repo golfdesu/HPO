@@ -368,7 +368,7 @@ if __name__ == '__main__':
     print("=" * 65)
 
     # Save best parameters to JSON
-    output_json = "06_hpo_ptst_pytorch_best_params.json"
+    output_json = "06_hpo_ptst_pytorch_best_params" + os.environ.get('HPO_OUTPUT_SUFFIX', '') + ".json"
     # Retrieve top 10 trials sorted by value
     completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
     completed_trials.sort(key=lambda t: t.value)
