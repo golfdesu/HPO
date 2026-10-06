@@ -1,15 +1,16 @@
 #!/bin/bash
 # ==============================================================================
-# SLURM Job Script: Dedicated HPO Runner for 8 Elite Baselines on JPL V3 (mixed)
+# SLURM Job Script: HPO Runner for Elite Baselines (Group B) on JPL V3 (mixed)
 # Target Hardware: Erawan HPC 'mixed' partition (compute3, A100, 16 CPU, 64GB RAM)
 # Partition      : mixed (Max timelimit: 1 day, requested: 24:00:00)
 # Dataset Target : ACN JPL V3 (acn_jpl_ready_v3.csv)
 # Destination    : Root directory (.) strictly, suffixed with _jpl_v3
 #                  e.g. 01_hpo_tfm_pytorch_best_params_jpl_v3.json
 #                  (never collides with Caltech <model>_best_params.json)
-# Models Included: 8 Elite Baselines (01, 06, 10, 13, 17, 24, 27, 28)
+# Models Included: 4 Elite Baselines (17, 24, 27, 28)
+# Companion Job  : run_hpo_elite_4a_jpl_h100.sbatch (models 01, 06, 10, 13)
 # ==============================================================================
-#SBATCH --job-name=hpo_elite_8_jpl_mixed
+#SBATCH --job-name=hpo_elite_4b_jpl_mixed
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.out
 #SBATCH --partition=mixed
@@ -30,9 +31,9 @@ export DATASET_TARGET="acn_jpl_ready_v3"
 # Output suffix consumed by the HPO scripts -> <model>_best_params_jpl_v3.json
 export HPO_OUTPUT_SUFFIX="_jpl_v3"
 
-PROGRESS_LOG="logs/hpo_progress_jpl_elite_8_mixed.txt"
-COMPLETED_LOG="logs/hpo_completed_jpl_elite_8_mixed.txt"
-FAILED_LOG="logs/hpo_failed_jpl_elite_8_mixed.txt"
+PROGRESS_LOG="logs/hpo_progress_jpl_elite_4b_mixed.txt"
+COMPLETED_LOG="logs/hpo_completed_jpl_elite_4b_mixed.txt"
+FAILED_LOG="logs/hpo_failed_jpl_elite_4b_mixed.txt"
 
 rm -f "${PROGRESS_LOG}" "${COMPLETED_LOG}" "${FAILED_LOG}"
 
@@ -132,12 +133,8 @@ run_hpo() {
     echo ""
 }
 
-# 4. Catalog of 8 Elite Baselines (01, 06, 10, 13, 17, 24, 27, 28)
+# 4. Catalog of 4 Elite Baselines (Group B: 17, 24, 27, 28)
 MODELS=(
-    "01_hpo_tfm_pytorch.py:M01:01 Vanilla Transformer Encoder"
-    "06_hpo_ptst_pytorch.py:M06:06 PatchTST Baseline"
-    "10_hpo_gru_pytorch.py:M10:10 GRU Baseline"
-    "13_hpo_smamba_pytorch.py:M13:13 S-Mamba Baseline"
     "17_hpo_xgboost.py:M17:17 XGBoost Direct Baseline"
     "24_hpo_nhits_pytorch.py:M24:24 N-HiTS Baseline"
     "27_hpo_moderntcn_pytorch.py:M27:27 ModernTCN Baseline"
@@ -148,7 +145,7 @@ TOTAL_MODELS=${#MODELS[@]}
 CURRENT_IDX=1
 
 echo "=============================================================================="
-echo "Starting HPO for ${TOTAL_MODELS} Elite Models on JPL V3 using 'mixed' partition..."
+echo "Starting HPO for ${TOTAL_MODELS} Elite Models (Group B) on JPL V3 using 'mixed' partition..."
 echo "Concurrency: PARALLEL_JOBS=${PARALLEL_JOBS}"
 echo "=============================================================================="
 
@@ -176,7 +173,7 @@ TOTAL_HOURS=$((TOTAL_DIFF / 3600))
 TOTAL_MIN=$(((TOTAL_DIFF % 3600) / 60))
 
 echo "=============================================================================="
-echo ">>> HPO COMPLETED FOR ALL ${TOTAL_MODELS} ELITE MODELS ON JPL V3 (mixed)"
+echo ">>> HPO COMPLETED FOR ${TOTAL_MODELS} ELITE MODELS (GROUP B) ON JPL V3 (mixed)"
 echo "Total Elapsed Time  : ${TOTAL_HOURS}h ${TOTAL_MIN}m ($TOTAL_DIFF seconds)"
 echo "Finished at         : $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================================================="

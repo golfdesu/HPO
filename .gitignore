@@ -34,7 +34,8 @@
 !run_hpo_elite_mixed.sbatch
 !run_hpo_00_07_caltech_h100.sbatch
 !run_hpo_elite_8_caltech_h100.sbatch
-!run_hpo_elite_8_jpl_mixed.sbatch
+!run_hpo_elite_4a_jpl_h100.sbatch
+!run_hpo_elite_4b_jpl_mixed.sbatch
 
 # 4. Exclude temp, cache, logs, and subdirectories
 *fix*
