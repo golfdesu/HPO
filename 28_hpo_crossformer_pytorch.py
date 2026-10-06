@@ -94,21 +94,40 @@ if __name__ == '__main__':
 # ---------------------------------------------------------
 # 1. Data Loading & Preprocessing
 # ---------------------------------------------------------
-data_path = '../data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../../data_cleaned/acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = '../../data_cleaned/acn_jpn_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_jpl_ready_v3.csv'
-if not os.path.exists(data_path):
-    data_path = 'acn_jpn_ready_v3.csv'
+dataset_target = os.environ.get('DATASET_TARGET', 'acn_jpl_ready_v3')
+if 'caltech' in dataset_target.lower():
+    csv_candidates = [
+        '../data_cleaned/acn_caltech_ready_v3.csv',
+        'data_cleaned/acn_caltech_ready_v3.csv',
+        '../../data_cleaned/acn_caltech_ready_v3.csv',
+        'acn_caltech_ready_v3.csv',
+        '../data_cleaned/acn_caltech_ready2.csv',
+        'data_cleaned/acn_caltech_ready2.csv'
+    ]
+    dataset_name_tag = 'acn_caltech_v3'
+else:
+    csv_candidates = [
+        '../data_cleaned/acn_jpl_ready_v3.csv',
+        'data_cleaned/acn_jpl_ready_v3.csv',
+        '../data_cleaned/acn_jpn_ready_v3.csv',
+        'data_cleaned/acn_jpn_ready_v3.csv',
+        '../../data_cleaned/acn_jpl_ready_v3.csv',
+        '../../data_cleaned/acn_jpn_ready_v3.csv',
+        'acn_jpl_ready_v3.csv',
+        'acn_jpn_ready_v3.csv'
+    ]
+    dataset_name_tag = 'acn_jpl'
+
+data_path = None
+for cand in csv_candidates:
+    if os.path.exists(cand):
+        data_path = cand
+        break
+
+if data_path is None:
+    raise FileNotFoundError(f"Could not locate dataset for target {dataset_target}")
+
+print(f"Loading dataset from: {data_path} (Target: {dataset_name_tag})")
 df = pd.read_csv(data_path)
 df['connectionTime'] = pd.to_datetime(df['connectionTime'])
 df = df.set_index('connectionTime')
@@ -393,14 +412,12 @@ if __name__ == '__main__':
     best_data = {
         "model_name": "28_hpo_crossformer_pytorch",
         "search_mode": "FULL_100_PERCENT",
+        "dataset": dataset_name_tag,
         "best_val_loss": float(study.best_value),
         "best_params": study.best_params,
         "top_10_trials": top_10
     }
-    
-    os.makedirs("best_params", exist_ok=True)
-    with open(os.path.join("best_params", output_json), "w", encoding="utf-8") as f:
-        json.dump(best_data, f, indent=4)
+
     with open(output_json, "w", encoding="utf-8") as f:
         json.dump(best_data, f, indent=4)
-    print(f"\nSaved best parameters to {output_json} and best_params/{output_json}")
+    print(f"\nSaved best parameters to {output_json}")
