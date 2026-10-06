@@ -457,11 +457,3 @@ if __name__ == '__main__':
     with open(output_json, "w", encoding="utf-8") as f:
         json.dump(best_data, f, indent=4)
     print(f"\nSaved best parameters to {output_json}")
-
-    # Also archive to best_params directory if exists
-    archive_dir = os.path.join("best_params", dataset_name_tag)
-    os.makedirs(archive_dir, exist_ok=True)
-    archive_json = os.path.join(archive_dir, output_json)
-    with open(archive_json, "w", encoding="utf-8") as f:
-        json.dump(best_data, f, indent=4)
-    print(f"Archived copy saved to {archive_json}")
